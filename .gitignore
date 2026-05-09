@@ -1,0 +1,25 @@
+# Các file môi trường và mật khẩu
+.env
+.env.local
+
+# Thư mục rác của Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Nhật ký và dữ liệu nặng
+*.log
+*.csv
+*.json
+*.xlsx
+!sample_data/sample.csv
+
+# File hệ thống Mac
+.DS_Store
+
+# Thư mục IDE
+.vscode/
+.idea/
