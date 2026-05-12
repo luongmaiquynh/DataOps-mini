@@ -29,12 +29,13 @@ default_args = {
 
 
 def task_extract(**context):
-    from etl.extract import extract_from_api
-    df = extract_from_api(API_URL, params=API_PARAMS)
-    # Open-Meteo trả về dict với key 'hourly' chứa data
-    import requests, pandas as pd
+    import requests
+    import pandas as pd
     resp = requests.get(API_URL, params=API_PARAMS, timeout=30)
+    resp.raise_for_status()
     hourly = resp.json().get('hourly', {})
+    if not hourly:
+        raise ValueError('API response missing hourly data')
     df = pd.DataFrame(hourly)
     context['ti'].xcom_push(key='raw_data', value=df.to_json())
 
@@ -75,7 +76,7 @@ with DAG(
     default_args=default_args,
     description='Ingest dữ liệu thời tiết Hà Nội từ Open-Meteo API',
     schedule_interval='@hourly',
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 5, 12),
     catchup=False,
     tags=['ingest', 'api', 'weather'],
 ) as dag:
