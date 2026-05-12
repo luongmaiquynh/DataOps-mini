@@ -28,11 +28,7 @@ jobs:
 
       - name: Lint with flake8
         run: |
-          flake8 pipeline/etl/ pipeline/dags/ pipeline/tests/ \
-            --max-line-length=100 \
-            --extend-ignore=E221,E401 \
-            --exclude=__pycache__,.venv \
-            --statistics
+          flake8 pipeline/etl/ pipeline/dags/ pipeline/tests/ --statistics
 
       - name: Run unit tests
         run: |
