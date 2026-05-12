@@ -1,0 +1,39 @@
+name: CI – Lint & Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas requests sqlalchemy psycopg2-binary boto3 \
+                      flake8 pytest pytest-cov
+
+      - name: Lint with flake8
+        run: |
+          flake8 pipeline/etl/ pipeline/dags/ pipeline/tests/ \
+            --max-line-length=100 \
+            --exclude=__pycache__,.venv \
+            --statistics
+
+      - name: Run unit tests
+        run: |
+          cd pipeline
+          pytest tests/ -v --tb=short

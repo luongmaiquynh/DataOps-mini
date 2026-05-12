@@ -75,21 +75,21 @@ Máy macOS (chỉ: VS Code + git + ssh)
          ▼
 ┌──────────────────────────────────────────────────┐
 │  VM1 – DataOps Master / CI-CD / Monitoring       │
-│  192.168.56.11                                   │
+│  192.168.64.2                                   │
 │  Airflow | Grafana | Prometheus | Loki | Alertmgr │
 └──────────────────────────────────────────────────┘
-         │ mạng nội bộ 192.168.56.x
+         │ mạng nội bộ 192.168.64.x
          ▼
 ┌──────────────────────────────────────────────────┐
 │  VM2 – Database + Data Processing                │
-│  192.168.56.12                                   │
+│  192.168.64.3                                   │
 │  PostgreSQL | Redis | MinIO | Airflow Worker     │
 └──────────────────────────────────────────────────┘
-         │ mạng nội bộ 192.168.56.x
+         │ mạng nội bộ 192.168.64.x
          ▼
 ┌──────────────────────────────────────────────────┐
 │  VM3 – Optional Worker / Storage / Backup        │
-│  192.168.56.13                                   │
+│  192.168.64.4                                   │
 │  Airflow Worker | Node Exporter | Backup         │
 └──────────────────────────────────────────────────┘
 ```
@@ -216,7 +216,7 @@ network:
     enp0s2:              # Adapter 2 – Host Only (SSH từ macOS)
       dhcp4: no
       addresses:
-        - 192.168.56.11/24
+        - 192.168.64.2/24
 ```
 ```bash
 sudo netplan apply
@@ -227,45 +227,45 @@ sudo netplan apply
 > # Chạy trên macOS
 > ifconfig | grep -A2 bridge
 > ```
-> Nếu subnet khác `192.168.56.x`, điều chỉnh IP cho phù hợp.
+> Nếu subnet khác `192.168.64.x`, điều chỉnh IP cho phù hợp.
 
 Trên VM2 (thay `.11` thành `.12`):
 ```bash
 sudo netplan apply
-ping 192.168.56.11   # test từ VM2
+ping 192.168.64.2   # test từ VM2
 ```
 
 **E. Thêm hostname /etc/hosts (cả 3 VM)**
 ```bash
 sudo tee -a /etc/hosts << 'EOF'
-192.168.56.11   vm1 dataops-master
-192.168.56.12   vm2 dataops-db
-192.168.56.13   vm3 dataops-worker
+192.168.64.2   vm1 dataops-master
+192.168.64.3   vm2 dataops-db
+192.168.64.4   vm3 dataops-worker
 EOF
 ```
 
 **F. SSH key từ macOS**
 ```bash
 ssh-keygen -t ed25519 -C "dataops"
-ssh-copy-id dataops@192.168.56.11
-ssh-copy-id dataops@192.168.56.12
-ssh-copy-id dataops@192.168.56.13
+ssh-copy-id dataops@192.168.64.2
+ssh-copy-id dataops@192.168.64.3
+ssh-copy-id dataops@192.168.64.4
 ```
 
 Thêm vào `~/.ssh/config`:
 ```
 Host vm1
-    HostName 192.168.56.11
+    HostName 192.168.64.2
     User dataops
     IdentityFile ~/.ssh/id_ed25519
 
 Host vm2
-    HostName 192.168.56.12
+    HostName 192.168.64.3
     User dataops
     IdentityFile ~/.ssh/id_ed25519
 
 Host vm3
-    HostName 192.168.56.13
+    HostName 192.168.64.4
     User dataops
     IdentityFile ~/.ssh/id_ed25519
 ```
@@ -305,7 +305,7 @@ sudo apt install -y curl wget git htop net-tools
 
 | | VM1 | VM2 | VM3 |
 |---|---|---|---|
-| IP | 192.168.56.11 | 192.168.56.12 | 192.168.56.13 |
+| IP | 192.168.64.2 | 192.168.64.3 | 192.168.64.4 |
 | Hostname | vm1 | vm2 | vm3 |
 | Username | dataops | dataops | dataops |
 | Vai trò | DataOps Master / CI-CD / Monitoring | Database + Data Processing | Optional Worker / Storage / Backup |
@@ -374,23 +374,23 @@ cat > .env.example << 'EOF'
 POSTGRES_USER=dataops
 POSTGRES_PASSWORD=***REMOVED***
 POSTGRES_DB=dataops_db
-POSTGRES_HOST=192.168.56.12
+POSTGRES_HOST=192.168.64.3
 POSTGRES_PORT=5432
-REDIS_HOST=192.168.56.12
+REDIS_HOST=192.168.64.3
 REDIS_PORT=6379
 MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=***REMOVED***
-MINIO_HOST=192.168.56.12
+MINIO_HOST=192.168.64.3
 MINIO_PORT=9000
 MINIO_BUCKET=dataops-lake
 AIRFLOW__CORE__FERNET_KEY=your-fernet-key-here
 AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
-AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://dataops:***REMOVED***@192.168.56.12:5432/airflow_db
-AIRFLOW__CELERY__BROKER_URL=redis://192.168.56.12:6379/0
-AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://dataops:***REMOVED***@192.168.56.12:5432/airflow_db
+AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://dataops:***REMOVED***@192.168.64.3:5432/airflow_db
+AIRFLOW__CELERY__BROKER_URL=redis://192.168.64.3:6379/0
+AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://dataops:***REMOVED***@192.168.64.3:5432/airflow_db
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=***REMOVED***
-VM3_HOST=192.168.56.13
+VM3_HOST=192.168.64.4
 BACKUP_DIR=/opt/backup
 EOF
 ```
@@ -463,7 +463,7 @@ networks:
 
 Deploy lên VM2:
 ```bash
-scp -r . dataops@192.168.56.12:/opt/dataops
+scp -r . dataops@192.168.64.3:/opt/dataops
 ssh vm2
 cd /opt/dataops && cp .env.example .env && nano .env
 docker compose -f docker/dataops-vm2/docker-compose.yml up -d
@@ -477,19 +477,19 @@ docker compose -f docker/dataops-vm2/docker-compose.yml ps
 - [ ] Mount pipeline/dags/ vào container
 - [ ] Chạy: `docker compose up airflow-init` rồi `docker compose up -d`
 
-Truy cập: http://192.168.56.11:8080
+Truy cập: http://192.168.64.2:8080
 
 #### Bước 2.3 – VM1: Monitoring Stack
 ```bash
 docker compose -f docker/dataops-vm1/docker-compose-monitoring.yml up -d
-# Grafana: http://192.168.56.11:3000
+# Grafana: http://192.168.64.2:3000
 ```
 
 #### Bước 2.4 – VM3: Airflow Worker + Backup (docker/dataops-vm3/docker-compose.yml)
 ```yaml
 services:
   airflow-worker:
-    image: apache/airflow:2.9.0
+    image: apache/airflow:2.7.1
     restart: always
     command: celery worker
     environment:
@@ -653,7 +653,7 @@ with DAG(
 
 #### Bước 3.4 – pipeline/requirements.txt
 ```
-apache-airflow==2.9.0
+apache-airflow==2.7.1
 pandas==2.2.0
 requests==2.31.0
 sqlalchemy==2.0.0
@@ -674,7 +674,7 @@ global:
 scrape_configs:
   - job_name: 'node-exporter'
     static_configs:
-      - targets: ['node-exporter:9100', '192.168.56.12:9100']
+      - targets: ['node-exporter:9100', '192.168.64.3:9100']
   - job_name: 'cadvisor'
     static_configs:
       - targets: ['cadvisor:8080']
@@ -780,13 +780,13 @@ jobs:
 #### infra/ansible/inventory.ini
 ```ini
 [vm1]
-192.168.56.11 ansible_user=dataops
+192.168.64.2 ansible_user=dataops
 
 [vm2]
-192.168.56.12 ansible_user=dataops
+192.168.64.3 ansible_user=dataops
 
 [vm3]
-192.168.56.13 ansible_user=dataops
+192.168.64.4 ansible_user=dataops
 
 [all:vars]
 ansible_python_interpreter=/usr/bin/python3

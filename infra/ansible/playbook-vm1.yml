@@ -1,0 +1,64 @@
+---
+- name: Deploy Airflow stack on VM1
+  hosts: vm1
+  become: true
+
+  vars:
+    app_dir: /home/dataops/dataops
+    compose_file: docker/dataops-vm1/docker-compose.yml
+    monitoring_file: docker/dataops-vm1/docker-compose-monitoring.yml
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Ensure Docker is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Pull latest code from git
+      git:
+        repo: "{{ lookup('env', 'GIT_REPO_URL') }}"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: dataops
+
+    - name: Copy .env file
+      copy:
+        src: ../../.env
+        dest: "{{ app_dir }}/.env"
+        owner: dataops
+        group: dataops
+        mode: '0600'
+
+    - name: Deploy Airflow containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        files:
+          - "{{ compose_file }}"
+        state: present
+        pull: always
+      become_user: dataops
+
+    - name: Deploy monitoring containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        files:
+          - "{{ monitoring_file }}"
+        state: present
+        pull: always
+      become_user: dataops
+
+    - name: Verify Airflow webserver is up
+      uri:
+        url: http://localhost:8080/health
+        status_code: 200
+      retries: 5
+      delay: 10
+      register: result
+      until: result.status == 200

@@ -1,0 +1,63 @@
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.7.1
+  restart: always
+  environment:
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+    AIRFLOW__CELERY__BROKER_URL: ${AIRFLOW__CELERY__BROKER_URL}
+    AIRFLOW__CELERY__RESULT_BACKEND: ${AIRFLOW__CELERY__RESULT_BACKEND}
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    _PIP_ADDITIONAL_REQUIREMENTS: "boto3==1.34.0 psycopg2-binary==2.9.9 pandas==2.0.3 requests==2.31.0 sqlalchemy==1.4.52"
+  volumes:
+    - ../../pipeline/dags:/opt/airflow/dags
+    - ../../pipeline/etl:/opt/airflow/dags/etl
+    - ../../sample_data:/opt/airflow/sample_data
+    - ../../logs:/opt/airflow/logs
+    - ../../plugins:/opt/airflow/plugins
+  depends_on:
+    airflow-init:
+      condition: service_completed_successfully
+
+services:
+  airflow-init:
+    <<: *airflow-common
+    restart: no
+    depends_on: []
+    command: bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@dataops.local"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow_webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow_scheduler
+    command: scheduler
+
+  airflow-worker:
+    <<: *airflow-common
+    container_name: airflow_worker
+    command: celery worker
+
+  airflow-flower:
+    <<: *airflow-common
+    container_name: airflow_flower
+    command: celery flower
+    ports:
+      - "5555:5555"
+
+networks:
+  default:
+    name: dataops-vm1-net
+    driver: bridge

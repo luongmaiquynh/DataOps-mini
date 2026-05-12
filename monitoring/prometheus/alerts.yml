@@ -1,0 +1,54 @@
+groups:
+  - name: infrastructure
+    rules:
+      # Cảnh báo khi instance down
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "{{ $labels.instance }} đã down hơn 1 phút."
+
+      # Cảnh báo CPU cao
+      - alert: HighCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU cao trên {{ $labels.instance }}"
+          description: "CPU usage > 80% trong 5 phút liên tục."
+
+      # Cảnh báo RAM thấp
+      - alert: LowMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RAM thấp trên {{ $labels.instance }}"
+          description: "RAM khả dụng < 10%."
+
+      # Cảnh báo disk gần đầy
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk sắp đầy trên {{ $labels.instance }}"
+          description: "Disk còn < 15% dung lượng trống."
+
+  - name: containers
+    rules:
+      # Cảnh báo container restart nhiều lần
+      - alert: ContainerRestartingTooMuch
+        expr: rate(container_start_time_seconds[15m]) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} restart liên tục"
+          description: "Container restart nhiều hơn 3 lần trong 15 phút."
