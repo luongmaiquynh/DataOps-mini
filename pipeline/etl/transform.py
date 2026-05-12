@@ -23,7 +23,7 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def fill_missing(df: pd.DataFrame, fill_values: dict) -> pd.DataFrame:
     """Điền giá trị mặc định cho các cột bị thiếu.
-    
+
     Ví dụ: fill_values = {'age': 0, 'salary': 0.0}
     """
     for col, value in fill_values.items():
@@ -37,7 +37,7 @@ def fill_missing(df: pd.DataFrame, fill_values: dict) -> pd.DataFrame:
 
 def cast_types(df: pd.DataFrame, schema: dict) -> pd.DataFrame:
     """Ép kiểu dữ liệu cho từng cột theo schema.
-    
+
     Ví dụ: schema = {'age': int, 'salary': float, 'created_at': 'datetime64[ns]'}
     """
     for col, dtype in schema.items():

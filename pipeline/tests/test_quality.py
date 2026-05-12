@@ -1,10 +1,11 @@
-import pytest
-import pandas as pd
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from etl.quality_check import run_quality_check, assert_quality, QualityReport
+
+import pytest  # noqa: E402
+import pandas as pd  # noqa: E402
+from etl.quality_check import run_quality_check, assert_quality, QualityReport  # noqa: E402
 
 
 # ─── Fixtures ────────────────────────────────────────────────

@@ -1,10 +1,13 @@
-import pytest
-import pandas as pd
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from etl.transform import clean_data, normalize_columns, fill_missing, cast_types
+
+import pytest  # noqa: E402
+import pandas as pd  # noqa: E402
+from etl.transform import (  # noqa: E402
+    clean_data, normalize_columns, fill_missing, cast_types
+)
 
 
 # ─── Fixtures ────────────────────────────────────────────────

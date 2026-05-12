@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class QualityReport:
 
 def run_quality_check(df: pd.DataFrame, expected_columns: List[str] = None) -> QualityReport:
     """Kiểm tra chất lượng dữ liệu và trả về QualityReport.
-    
+
     Kiểm tra:
     - Số lượng null từng cột
     - Số dòng duplicate
@@ -59,7 +59,7 @@ def run_quality_check(df: pd.DataFrame, expected_columns: List[str] = None) -> Q
 
 def assert_quality(df: pd.DataFrame, expected_columns: List[str] = None) -> QualityReport:
     """Chạy kiểm tra chất lượng và raise Exception nếu không đạt.
-    
+
     Dùng trong Airflow DAG để dừng pipeline khi dữ liệu xấu.
     """
     report = run_quality_check(df, expected_columns)

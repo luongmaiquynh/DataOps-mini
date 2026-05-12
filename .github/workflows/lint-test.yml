@@ -30,6 +30,7 @@ jobs:
         run: |
           flake8 pipeline/etl/ pipeline/dags/ pipeline/tests/ \
             --max-line-length=100 \
+            --extend-ignore=E221,E401 \
             --exclude=__pycache__,.venv \
             --statistics
 

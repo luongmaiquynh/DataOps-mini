@@ -15,7 +15,7 @@ def get_postgres_engine(conn_str: str):
 
 def load_to_postgres(df: pd.DataFrame, table: str, conn_str: str, if_exists: str = 'append') -> int:
     """Lưu DataFrame vào bảng PostgreSQL.
-    
+
     if_exists: 'append' (thêm vào) | 'replace' (ghi đè) | 'fail'
     """
     engine = get_postgres_engine(conn_str)
@@ -37,7 +37,7 @@ def get_minio_client(endpoint: str, access_key: str, secret_key: str):
 def load_to_minio(df: pd.DataFrame, bucket: str, object_name: str,
                   endpoint: str, access_key: str, secret_key: str) -> None:
     """Upload DataFrame dưới dạng CSV lên MinIO (S3-compatible).
-    
+
     object_name: đường dẫn trong bucket, ví dụ 'raw/employees/2026-05-11.csv'
     """
     client = get_minio_client(endpoint, access_key, secret_key)
