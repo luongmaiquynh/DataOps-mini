@@ -1,68 +1,53 @@
 import pandas as pd
 import logging
-from dataclasses import dataclass
-from typing import List, Dict
+from dataclasses import dataclass, field
+from typing import List
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class QualityReport:
-    null_count: Dict[str, int]
-    duplicate_count: int
-    missing_columns: List[str]
-    row_count: int
-    passed: bool
+    null_count: dict = field(default_factory=dict)
+    duplicate_count: int = 0
+    schema_errors: List[str] = field(default_factory=list)
+    passed: bool = True
 
     def summary(self) -> str:
-        status = "PASSED" if self.passed else "FAILED"
         return (
-            f"[Quality Check {status}] "
-            f"rows={self.row_count}, "
-            f"duplicates={self.duplicate_count}, "
-            f"nulls={self.null_count}, "
-            f"missing_cols={self.missing_columns}"
+            f"QualityReport | nulls={self.null_count} | "
+            f"duplicates={self.duplicate_count} | "
+            f"schema_errors={self.schema_errors} | "
+            f"passed={self.passed}"
         )
 
 
 def run_quality_check(df: pd.DataFrame, expected_columns: List[str] = None) -> QualityReport:
-    """Kiểm tra chất lượng dữ liệu và trả về QualityReport.
-
-    Kiểm tra:
-    - Số lượng null từng cột
-    - Số dòng duplicate
-    - Các cột bị thiếu so với expected_columns
-    """
-    null_count = {col: int(df[col].isnull().sum()) for col in df.columns}
+    """Kiểm tra chất lượng dữ liệu, trả về QualityReport (không raise exception)."""
+    null_count = df.isnull().sum().to_dict()
     duplicate_count = int(df.duplicated().sum())
-    missing_columns = []
+    schema_errors = []
     if expected_columns:
-        missing_columns = [c for c in expected_columns if c not in df.columns]
+        schema_errors = [c for c in expected_columns if c not in df.columns]
 
-    has_nulls = any(v > 0 for v in null_count.values())
     passed = (
-        not has_nulls and
-        duplicate_count == 0 and
-        len(missing_columns) == 0
+        all(v == 0 for v in null_count.values())
+        and duplicate_count == 0
+        and len(schema_errors) == 0
     )
 
     report = QualityReport(
         null_count=null_count,
         duplicate_count=duplicate_count,
-        missing_columns=missing_columns,
-        row_count=len(df),
+        schema_errors=schema_errors,
         passed=passed,
     )
     logger.info(report.summary())
     return report
 
 
-def assert_quality(df: pd.DataFrame, expected_columns: List[str] = None) -> QualityReport:
-    """Chạy kiểm tra chất lượng và raise Exception nếu không đạt.
-
-    Dùng trong Airflow DAG để dừng pipeline khi dữ liệu xấu.
-    """
+def assert_quality(df: pd.DataFrame, expected_columns: List[str] = None) -> None:
+    """Kiểm tra chất lượng và raise ValueError nếu không đạt."""
     report = run_quality_check(df, expected_columns)
     if not report.passed:
         raise ValueError(f"Data quality check failed: {report.summary()}")
-    return report
