@@ -775,7 +775,42 @@ jobs:
             docker compose -f docker/dataops-vm1/docker-compose.yml up -d --force-recreate
 ```
 
-> Thêm secrets: GitHub repo → Settings → Secrets → VM1_HOST, VM1_USER, VM1_SSH_KEY
+> **Lưu ý quan trọng:** VM1 chạy local trên UTM (IP `192.168.64.x`) — không có IP public. GitHub Actions **không thể SSH vào VM1 từ internet**. Giải pháp là dùng **self-hosted runner** cài trực tiếp trên VM1.
+
+#### Cài đặt Self-Hosted Runner trên VM1
+
+Self-hosted runner là một agent chạy trên VM1, tự kết nối ra GitHub để nhận lệnh — không cần GitHub SSH vào.
+
+**Bước 1 – Lấy token từ GitHub:**
+
+Vào: **GitHub repo → Settings → Actions → Runners → New self-hosted runner**
+Chọn: **Linux / ARM64** → copy các lệnh GitHub hiển thị.
+
+**Bước 2 – Chạy trên VM1:**
+```bash
+ssh dataops@192.168.64.2
+mkdir actions-runner && cd actions-runner
+
+# Download runner (thay version nếu cần)
+curl -o actions-runner-linux-arm64-2.334.0.tar.gz -L \
+  https://github.com/actions/runner/releases/download/v2.334.0/actions-runner-linux-arm64-2.334.0.tar.gz
+tar xzf ./actions-runner-linux-arm64-2.334.0.tar.gz
+
+# Configure (token lấy từ GitHub ở bước 1)
+./config.sh --url https://github.com/<username>/<repo> --token <TOKEN>
+
+# Cài làm service để tự chạy khi VM reboot
+sudo ./svc.sh install
+sudo ./svc.sh start
+```
+
+**Bước 3 – Xác nhận runner online:**
+
+Vào **GitHub repo → Settings → Actions → Runners** → thấy runner trạng thái **Idle** (xanh) là thành công.
+
+**Bước 4 – Cấu hình deploy.yml dùng self-hosted runner:**
+
+Thay `runs-on: ubuntu-latest` bằng `runs-on: self-hosted` trong CD workflow. Khi đó mỗi lần push `main`, CD job sẽ chạy trực tiếp trên VM1 — không cần SSH từ bên ngoài.
 
 #### infra/ansible/inventory.ini
 ```ini
