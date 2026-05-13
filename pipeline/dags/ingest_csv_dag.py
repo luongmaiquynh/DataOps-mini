@@ -25,34 +25,37 @@ def task_extract(**context):
     from etl.extract import extract_from_csv
     df = extract_from_csv(CSV_PATH)
     # Lưu tạm vào XCom dưới dạng JSON
-    context['ti'].xcom_push(key='raw_data', value=df.to_json())
+    context['ti'].xcom_push(key='raw_data', value=df.to_json(date_format='iso'))
 
 
 def task_transform(**context):
+    import io
     import pandas as pd
     from etl.transform import clean_data, normalize_columns, fill_missing
     raw_json = context['ti'].xcom_pull(key='raw_data', task_ids='extract')
-    df = pd.read_json(raw_json)
+    df = pd.read_json(io.StringIO(raw_json))
     df = normalize_columns(df)
     df = clean_data(df)
     df = fill_missing(df, {'age': 0, 'salary': 0.0})
-    context['ti'].xcom_push(key='clean_data', value=df.to_json())
+    context['ti'].xcom_push(key='clean_data', value=df.to_json(date_format='iso'))
 
 
 def task_quality(**context):
+    import io
     import pandas as pd
     from etl.quality_check import assert_quality
     clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
-    df = pd.read_json(clean_json)
+    df = pd.read_json(io.StringIO(clean_json))
     assert_quality(df, expected_columns=['id', 'name', 'age', 'city', 'salary', 'created_at'])
 
 
 def task_load(**context):
+    import io
     import pandas as pd
     from datetime import date
     from etl.load import load_to_postgres, load_to_minio
     clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
-    df = pd.read_json(clean_json)
+    df = pd.read_json(io.StringIO(clean_json))
     # Load vào PostgreSQL
     load_to_postgres(df, table='employees', conn_str=POSTGRES_CONN)
     # Upload lên MinIO

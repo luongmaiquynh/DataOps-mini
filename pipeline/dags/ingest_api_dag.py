@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
@@ -41,31 +41,34 @@ def task_extract(**context):
 
 
 def task_transform(**context):
+    import io
     import pandas as pd
     from etl.transform import clean_data, normalize_columns
     raw_json = context['ti'].xcom_pull(key='raw_data', task_ids='extract')
-    df = pd.read_json(raw_json)
+    df = pd.read_json(io.StringIO(raw_json))
     df = normalize_columns(df)
     df = clean_data(df)
     # Thêm cột ngày ingest
-    df['ingested_at'] = datetime.utcnow().isoformat()
+    df['ingested_at'] = datetime.now(timezone.utc).isoformat()
     context['ti'].xcom_push(key='clean_data', value=df.to_json())
 
 
 def task_quality(**context):
+    import io
     import pandas as pd
     from etl.quality_check import assert_quality
     clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
-    df = pd.read_json(clean_json)
+    df = pd.read_json(io.StringIO(clean_json))
     assert_quality(df, expected_columns=['time', 'temperature_2m', 'windspeed_10m'])
 
 
 def task_load(**context):
+    import io
     import pandas as pd
     from datetime import date
     from etl.load import load_to_postgres, load_to_minio
     clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
-    df = pd.read_json(clean_json)
+    df = pd.read_json(io.StringIO(clean_json))
     load_to_postgres(df, table='weather_hanoi', conn_str=POSTGRES_CONN)
     object_name = f'raw/weather/{date.today()}.csv'
     load_to_minio(df, MINIO_BUCKET, object_name, MINIO_ENDPOINT, MINIO_ACCESS, MINIO_SECRET)

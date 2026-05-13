@@ -21,9 +21,13 @@ def load_to_postgres(df: pd.DataFrame, table: str, conn_str: str, if_exists: str
     Returns number of rows written.
     """
     engine = get_postgres_engine(conn_str)
-    df.to_sql(table, engine, if_exists=if_exists, index=False)
-    logger.info("Loaded %d rows into PostgreSQL table '%s'", len(df), table)
-    return len(df)
+    try:
+        df.to_sql(table, engine, if_exists=if_exists, index=False)
+        logger.info("Loaded %d rows into PostgreSQL table '%s'", len(df), table)
+        return len(df)
+    except Exception as e:
+        logger.error("Failed to load data into PostgreSQL table '%s': %s", table, e)
+        raise
 
 
 def get_minio_client(endpoint: str, access_key: str, secret_key: str):

@@ -41,7 +41,7 @@ scrape_configs:
   # PostgreSQL Exporter (VM2)
   - job_name: 'postgres-exporter'
     static_configs:
-      - targets: ['192.168.64.3:9187']
+      - targets: ['postgres-exporter:9187']
         labels:
           vm: 'vm2'
           service: 'postgresql'

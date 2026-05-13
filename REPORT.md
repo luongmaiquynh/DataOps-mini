@@ -1,5 +1,5 @@
 # BÁO CÁO TIẾN ĐỘ DỰ ÁN: Mini DataOps Platform
-**Ngày báo cáo:** 12/05/2026  
+**Ngày báo cáo:** 13/05/2026  
 **Người thực hiện:** Lương Mai Quỳnh  
 **Mentor:** *(tên mentor)*  
 **Trạng thái:** ✅ HOÀN THÀNH 100%
@@ -51,7 +51,7 @@ Máy macOS (VS Code + Git + SSH)
 | Message Broker | Redis 7 |
 | Relational Database | PostgreSQL 15 |
 | Object Storage | MinIO |
-| Metrics & Monitoring | Prometheus + Grafana + cAdvisor + Node Exporter |
+| Metrics & Monitoring | Prometheus + Grafana + cAdvisor + Node Exporter + postgres-exporter |
 | Logging | Loki + Promtail |
 | Alerting | Alertmanager |
 | Language | Python 3.11 |
@@ -314,28 +314,48 @@ Tạo bucket qua MinIO Console (http://192.168.64.3:9001), đây là nơi lưu t
 
 ### 2.6 Giai đoạn 7 – Unit Tests
 
-#### ✅ test_transform.py (16 tests PASSED)
+Tổng cộng **6 file test, 61 test cases, tất cả PASSED**, bao phủ toàn bộ ETL modules và DAG task functions.
 
-File: `pipeline/tests/test_transform.py`
+#### ✅ test_extract.py (10 tests)
+- Đọc CSV đúng cột, số rows, phát hiện duplicate và null
+- Xử lý `FileNotFoundError` khi file không tồn tại
+- API trả về list / dict response → DataFrame đúng
+- Raise exception khi HTTP error / connection error
 
+#### ✅ test_transform.py (15 tests)
 | Test group | Số test | Nội dung |
 |---|---|---|
-| `test_clean_data_*` | 4 | Xóa duplicate rows, rows toàn NaN, giữ dữ liệu sạch |
-| `test_normalize_columns_*` | 4 | Lowercase, replace space bằng `_`, không thay đổi cột đã chuẩn |
-| `test_fill_missing_*` | 4 | Fill NaN theo dict, không fill nếu không có trong dict |
-| `test_cast_types_*` | 4 | Cast int/float/str, bỏ qua cột không tồn tại |
+| `test_clean_data_*` | 5 | Xóa duplicate, xóa rows toàn NaN, giữ partial null, reset index, empty df |
+| `test_normalize_columns_*` | 3 | Lowercase, replace space bằng `_`, strip whitespace |
+| `test_fill_missing_*` | 3 | Fill đúng cột, không ảnh hưởng cột khác, bỏ qua cột không tồn tại |
+| `test_cast_types_*` | 4 | Cast int/float, bỏ qua cast sai, bỏ qua cột không tồn tại |
 
-#### ✅ test_quality.py (12 tests PASSED)
-
-File: `pipeline/tests/test_quality.py`
-
+#### ✅ test_quality.py (12 tests)
 | Test group | Số test | Nội dung |
 |---|---|---|
 | `test_run_quality_check_*` | 4 | Phát hiện null, duplicate, schema error, passed=True khi sạch |
-| `test_assert_quality_*` | 4 | Raise exception khi có lỗi, không raise khi sạch |
+| `test_assert_quality_*` | 4 | Raise ValueError khi null/duplicate/missing column, không raise khi sạch |
 | `test_quality_report_summary_*` | 4 | Format summary string đúng định dạng |
 
-**Kết quả:** `28 passed in 0.XXs` — tất cả PASSED ✅
+#### ✅ test_load.py (8 tests)
+- Tạo engine/client đúng connection string / endpoint
+- `load_to_postgres`: kiểm tra table name, `if_exists` mặc định là `append`, trả về row count
+- `load_to_minio`: kiểm tra bucket, key, content là CSV bytes hợp lệ
+- Raise `ClientError` khi MinIO trả về lỗi
+
+#### ✅ test_dag_ingest_api.py (7 tests)
+- `task_extract`: push raw_data lên XCom, raise khi API thiếu `hourly`
+- `task_transform`: normalize cột, thêm `ingested_at`, push clean_data
+- `task_quality`: pass khi đủ cột, raise khi thiếu cột bắt buộc
+- `task_load`: gọi cả `load_to_postgres` và `load_to_minio`
+
+#### ✅ test_dag_ingest_csv.py (9 tests)
+- `task_extract`: đọc CSV → push XCom, raise `FileNotFoundError` khi thiếu file
+- `task_transform`: xóa duplicate, fill null age/salary=0, normalize column names
+- `task_quality`: pass khi sạch, raise khi thiếu cột hoặc còn null
+- `task_load`: gọi cả hai hàm load
+
+**Kết quả cuối cùng:** `61 passed, 0 warnings` — flake8: 0 lỗi ✅
 
 ---
 
@@ -365,7 +385,7 @@ File: `backup/backup.sh`
 
 #### ✅ docker-compose-monitoring.yml (VM1)
 
-7 container đang Up trên VM1:
+8 container đang Up trên VM1:
 
 | Service | Port | Vai trò |
 |---|---|---|
@@ -376,15 +396,21 @@ File: `backup/backup.sh`
 | Alertmanager | 9093 | Alert routing |
 | Node Exporter | 9100 | VM metrics |
 | cAdvisor | 8081 | Container metrics |
+| postgres-exporter | 9187 | PostgreSQL metrics |
 
-#### ✅ Prometheus scrape config (5 targets)
+#### ✅ Prometheus scrape config (5 targets — tất cả UP)
 - `prometheus`, `node-exporter-vm1`, `node-exporter-vm3` (192.168.64.4:9100)
-- `cadvisor`, `postgres-exporter` (192.168.64.3:9187)
+- `cadvisor`, `postgres-exporter` (service name `postgres-exporter:9187` trong network monitoring)
 
 #### ✅ Alert rules (5 rules)
 - `InstanceDown`, `HighCpuUsage` (>80%), `LowMemory` (<10%), `DiskSpaceLow` (<15%), `ContainerRestartingTooMuch`
 
-**Sự cố đã xử lý:** Loki restart liên tục do permission denied `/tmp/loki/rules` → đổi `path_prefix=/loki`, thêm `user: "0"` trong compose.
+**Các sự cố đã xử lý:**
+- Loki restart liên tục do permission denied `/tmp/loki/rules` → đổi `path_prefix=/loki`, thêm `user: "0"` trong compose
+- postgres-exporter target DOWN do cấu hình sai IP (`192.168.64.3:9187`) → sửa thành service name `postgres-exporter:9187` trong cùng Docker network
+- Promtail không thu thập log do thiếu file config → tạo `monitoring/promtail/promtail-config.yml` và thêm volume mount vào compose
+- Alert rule `ContainerRestartingTooMuch` dùng `rate()` trên gauge (sai) → sửa thành `changes(...[15m]) >= 3`
+- Node Exporter VM3 không chạy → deploy docker-compose.yml lên VM3 qua SSH
 
 ---
 
@@ -428,7 +454,7 @@ Deploy lên VM1 khi push `main`:
 | GĐ4: Monitoring & Logging | Prometheus, Grafana, Loki, Alertmanager, cAdvisor | **100%** |
 | GĐ5: Backup | Script backup PostgreSQL + cron tự động trên VM3 | **100%** |
 | GĐ6: CI/CD + IaC | GitHub Actions CI ✅ PASSING + Ansible Playbooks | **100%** |
-| GĐ7: Testing | 28/28 unit tests PASSED (test_transform + test_quality) | **100%** |
+| GĐ7: Testing | 61/61 unit tests PASSED (6 file test, 0 warnings, flake8 clean) | **100%** |
 | GĐ8: Tài liệu | README đầy đủ, architecture overview | **100%** |
 | **Tổng thể** | | **100%** |
 
@@ -489,6 +515,13 @@ Deploy lên VM1 khi push `main`:
 | pg_dump version mismatch (14 vs 15) trên VM3 | VM3 cài postgresql-client-14, server là v15 | Cài `postgresql-client-15` từ apt.postgresql.org, dùng `/usr/lib/postgresql/15/bin/pg_dump` |
 | GitHub Actions CI fail với flake8 | E221, E401, W293, F401, E402 trong nhiều files | Tạo `.flake8` config với `extend-ignore`, sửa import order |
 | `pip3 install` bị block trên macOS | externally-managed-environment (PEP 668) | Dùng `python3 -m venv .venv && source .venv/bin/activate` |
+| postgres-exporter target DOWN trong Prometheus | Target trỏ `192.168.64.3:9187` nhưng container chạy trong network nội bộ của Docker | Sửa target thành service name `postgres-exporter:9187`; restart prometheus để bind mount nhận file mới |
+| `scp` phá bind mount Docker volume | `scp` tạo inode mới cho file → container vẫn đọc file cũ qua inode cũ | Sau khi scp config file, chạy `docker restart <container>` để mount lại |
+| `pd.read_json(string)` lỗi `FileNotFoundError` trên pandas 3.x | pandas 3.x treat chuỗi JSON là filepath thay vì raw JSON | Bọc tất cả string JSON bằng `io.StringIO()` trước khi truyền vào `pd.read_json()` |
+| Node Exporter VM3 không chạy | Không có docker-compose.yml trên VM3 | Tạo và deploy file compose qua SSH heredoc; Prometheus target `node-exporter-vm3` → UP |
+| Alert rule `ContainerRestartingTooMuch` sai PromQL | `rate()` chỉ hợp lệ với counter; `container_start_time_seconds` là gauge | Đổi sang `changes(container_start_time_seconds{name!=""}[15m]) >= 3` |
+| Promtail không thu thập log container | Thiếu file `promtail-config.yml`; volume mount trỏ đến file không tồn tại | Tạo `monitoring/promtail/promtail-config.yml` + thêm volume mount vào compose |
+| `data_quality_dag.py` có dòng lệnh thừa cuối file | Dòng `[check_emp, check_weather]` là list expression không làm gì (no-op) | Xóa dòng thừa — task dependency đã được khai báo đúng ở trên |
 
 ---
 
@@ -499,8 +532,8 @@ Deploy lên VM1 khi push `main`:
 | Triển khai Airflow CeleryExecutor trên VM1 | ✅ Hoàn thành |
 | Viết ETL modules (extract, transform, load, quality_check) | ✅ Hoàn thành |
 | Viết 3 Airflow DAGs (ingest_csv, ingest_api, data_quality) | ✅ Hoàn thành |
-| Unit tests: 28/28 PASSED (test_transform + test_quality) | ✅ Hoàn thành |
-| Monitoring stack: 7 container Up trên VM1 | ✅ Hoàn thành |
+| Unit tests: 61/61 PASSED (6 file test, 0 warnings, flake8 clean) | ✅ Hoàn thành |
+| Monitoring stack: 8 container Up trên VM1 (thêm postgres-exporter) | ✅ Hoàn thành |
 | Backup script + cron 2:00 AM hàng ngày trên VM3 | ✅ Hoàn thành |
 | Ansible playbooks cho VM1, VM2, VM3 | ✅ Hoàn thành |
 | GitHub Actions CI – Lint & Test: PASSING | ✅ Hoàn thành |
@@ -524,7 +557,7 @@ dataops/
 ├── docker/
 │   ├── dataops-vm1/
 │   │   ├── docker-compose.yml              ✅ Airflow CeleryExecutor (5 services)
-│   │   └── docker-compose-monitoring.yml  ✅ 7 container monitoring Up
+│   │   └── docker-compose-monitoring.yml  ✅ 8 container monitoring Up (thêm postgres-exporter)
 │   ├── dataops-vm2/
 │   │   └── docker-compose.yml             ✅ PostgreSQL + Redis + MinIO
 │   └── dataops-vm3/
@@ -534,14 +567,6 @@ dataops/
 │   ├── playbook-vm1.yml       ✅ Deploy Airflow + Monitoring
 │   ├── playbook-vm2.yml       ✅ Deploy PostgreSQL + Redis + MinIO
 │   └── playbook-vm3.yml       ✅ Deploy Node Exporter + Backup setup
-├── monitoring/
-│   ├── prometheus/
-│   │   ├── prometheus.yml     ✅ Scrape 5 targets
-│   │   └── alerts.yml         ✅ 5 alert rules
-│   ├── loki/loki-config.yml   ✅ Log aggregation
-│   ├── alertmanager/
-│   │   └── alertmanager.yml   ✅ Alert routing
-│   └── grafana/dashboards/    ✅ Datasource configured
 ├── backup/
 │   └── backup.sh              ✅ pg_dump + gzip + cron 2:00 AM VM3
 ├── pipeline/
@@ -555,11 +580,25 @@ dataops/
 │   │   ├── quality_check.py       ✅ QualityReport, run_quality_check, assert_quality
 │   │   └── load.py                ✅ load_to_postgres, load_to_minio
 │   ├── tests/
-│   │   ├── test_transform.py      ✅ 16 tests PASSED
-│   │   └── test_quality.py        ✅ 12 tests PASSED
-│   └── requirements.txt           ✅ Phiên bản tương thích Python 3.8
+│   │   ├── test_extract.py            ✅ 10 tests PASSED
+│   │   ├── test_transform.py          ✅ 15 tests PASSED
+│   │   ├── test_quality.py            ✅ 12 tests PASSED
+│   │   ├── test_load.py               ✅ 8 tests PASSED
+│   │   ├── test_dag_ingest_csv.py     ✅ 9 tests PASSED
+│   │   └── test_dag_ingest_api.py     ✅ 7 tests PASSED
+│   └── requirements.txt               ✅ Phiên bản tương thích Python 3.8
+├── monitoring/
+│   ├── prometheus/
+│   │   ├── prometheus.yml     ✅ Scrape 5 targets (tất cả UP)
+│   │   └── alerts.yml         ✅ 5 alert rules (PromQL đã fix)
+│   ├── loki/loki-config.yml   ✅ Log aggregation
+│   ├── promtail/
+│   │   └── promtail-config.yml  ✅ Thu thập log container Docker
+│   ├── alertmanager/
+│   │   └── alertmanager.yml   ✅ Alert routing
+│   └── grafana/dashboards/    ✅ Datasource configured
 └── sample_data/
-    └── sample.csv                 ✅ 5 dòng nhân viên (sau khi lọc duplicate)
+    └── sample.csv                 ✅ 6 dòng nhân viên (1 duplicate, 1 null age, 1 null salary)
 ```
 
 ---
@@ -571,8 +610,9 @@ Dự án **Mini DataOps Platform** đã hoàn thành 100% tất cả 8 giai đo�
 - **3 VM Ubuntu 22.04** chạy ổn định với các service phân tán đúng vai trò
 - **Airflow CeleryExecutor** điều phối pipeline dữ liệu tự động
 - **ETL pipeline** với kiểm tra chất lượng dữ liệu, lưu vào PostgreSQL và MinIO
-- **Monitoring stack** 7 container: Prometheus, Grafana, Loki, Alertmanager, cAdvisor, Node Exporter
+- **Monitoring stack** 8 container: Prometheus, Grafana, Loki, Promtail, Alertmanager, cAdvisor, Node Exporter, postgres-exporter — 5/5 targets UP
 - **Backup tự động** hàng ngày lúc 2:00 AM với giữ lịch sử 7 ngày
-- **28 unit tests PASSED** cho các ETL modules
+- **61 unit tests PASSED** (6 file test, 0 warnings) — bao phủ toàn bộ ETL modules và DAG task functions; flake8 clean
+- **7 bug đã phát hiện và fix** trong quá trình kiểm thử (pandas StringIO, PromQL gauge, no-op DAG expression, missing promtail config, v.v.)
 - **CI/CD** với GitHub Actions: lint + test tự động khi push code
 - **Infrastructure as Code** với Ansible playbooks cho cả 3 VM

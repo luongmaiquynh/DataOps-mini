@@ -796,28 +796,37 @@ ansible_python_interpreter=/usr/bin/python3
 
 ### GIAI ĐOẠN 7 – Testing (1 ngày)
 
-**pipeline/tests/test_transform.py**
-```python
-import pandas as pd
-from etl.transform import clean_data
+#### 7.1 – Unit Tests
 
-def test_remove_duplicates():
-    df = pd.DataFrame({'a': [1, 1, 2], 'b': ['x', 'x', 'y']})
-    assert len(clean_data(df)) == 2
+Có 4 file test, tổng cộng **61 test cases**, tất cả đều pass:
 
-def test_remove_all_null_rows():
-    df = pd.DataFrame({'a': [1, None], 'b': [2, None]})
-    assert len(clean_data(df)) == 1
+| File test | Số tests | Module được test |
+|---|---|---|
+| `tests/test_extract.py` | 10 | `etl/extract.py` – CSV + API extraction |
+| `tests/test_load.py` | 8 | `etl/load.py` – PostgreSQL + MinIO load |
+| `tests/test_quality.py` | 12 | `etl/quality_check.py` – QualityReport, assert |
+| `tests/test_transform.py` | 15 | `etl/transform.py` – clean, normalize, fill, cast |
+| `tests/test_dag_ingest_api.py` | 7 | `dags/ingest_api_dag.py` – task functions |
+| `tests/test_dag_ingest_csv.py` | 9 | `dags/ingest_csv_dag.py` – task functions |
+
+Chạy:
+```bash
+cd /Users/luongmaiquynh/Documents/dataops/pipeline
+source .venv/bin/activate
+flake8 etl/ dags/ tests/ --statistics   # 0 lỗi
+pytest tests/ -v                         # 61 passed
 ```
 
-**Kiểm tra vận hành**
+#### 7.2 – Kiểm tra vận hành
 
 | Test | Cách làm | Kết quả mong đợi |
 |---|---|---|
 | Restart VM | `sudo reboot` | Services tự start lại |
-| Restart container | `docker restart postgres` | Kết nối lại tự động |
-| Simulate failure | `docker stop airflow-scheduler` | Alert gửi email |
-| Disk full | `fallocate -l 70G /tmp/fill` | Alert disk > 90% |
+| Restart container | `docker restart postgres_db` | Kết nối lại tự động |
+| Simulate failure | `docker stop airflow_scheduler` | Alert gửi ntfy |
+| Disk full | `fallocate -l 70G /tmp/fill` | Alert disk > 85% |
+| Backup thủ công | `bash /home/dataops/backup.sh` trên VM3 | File .sql.gz trong `/opt/backup/postgres/` |
+| Trigger DAG | `docker exec airflow_scheduler airflow dags trigger ingest_weather_api` | State: success |
 
 ---
 
@@ -855,7 +864,7 @@ def test_remove_all_null_rows():
 | Message Broker | Redis 7 | VM2 |
 | Relational DB | PostgreSQL 15 | VM2 |
 | Object Storage | MinIO | VM2 |
-| Metrics | Prometheus + Node Exporter + cAdvisor | VM1 |
+| Metrics | Prometheus + Node Exporter + cAdvisor + postgres-exporter | VM1 |
 | Dashboard | Grafana | VM1 |
 | Logging | Loki + Promtail | VM1 |
 | Alerting | Alertmanager | VM1 |
@@ -869,18 +878,20 @@ def test_remove_all_null_rows():
 
 ## PHẦN 7 – DELIVERABLES CHECKLIST
 
-- [ ] Source code ETL (extract, transform, load, quality_check)
-- [ ] Airflow DAGs (ingest API + CSV, data quality)
-- [ ] Docker Compose files (VM1 + VM2 + VM3)
-- [ ] Prometheus + Grafana config + dashboards
-- [ ] Loki + Promtail config
-- [ ] Alertmanager config
-- [ ] Ansible playbooks
-- [ ] GitHub Actions workflows (CI + CD)
-- [ ] Backup script + cron
-- [ ] Sample dataset (sample_data/sample.csv)
+- [x] Source code ETL (extract, transform, load, quality_check)
+- [x] Airflow DAGs (ingest API + CSV, data quality)
+- [x] Docker Compose files (VM1 + VM2 + VM3)
+- [x] Prometheus + Grafana config + dashboards
+- [x] Loki + Promtail config (bao gồm `monitoring/promtail/promtail-config.yml`)
+- [x] Alertmanager config
+- [x] Ansible playbooks
+- [x] GitHub Actions workflows (CI + CD)
+- [x] Backup script + cron (chạy 2:00 AM hàng ngày trên VM3)
+- [x] Sample dataset (sample_data/sample.csv)
+- [x] Unit tests – 61 tests, 4 file ETL + 2 file DAG
+- [x] .env.example
 - [ ] README.md
-- [ ] .env.example
+- [ ] Sơ đồ kiến trúc (draw.io)
 
 ---
 
@@ -1147,15 +1158,31 @@ cd /Users/luongmaiquynh/Documents/dataops/pipeline
 source .venv/bin/activate      # hoặc: python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
+# Lint
+flake8 etl/ dags/ tests/ --statistics
+
 # Chạy tất cả tests
 pytest tests/ -v
 
-# Chạy test cụ thể
-pytest tests/test_transform.py -v
-pytest tests/test_quality.py -v
+# Chạy test theo từng module
+pytest tests/test_extract.py -v      # ETL extract
+pytest tests/test_transform.py -v    # ETL transform
+pytest tests/test_quality.py -v      # ETL quality check
+pytest tests/test_load.py -v         # ETL load
+pytest tests/test_dag_ingest_api.py -v   # DAG ingest API
+pytest tests/test_dag_ingest_csv.py -v   # DAG ingest CSV
 ```
 
-**Kết quả mong đợi:** `28 passed`
+**Kết quả mong đợi:** `61 passed, 0 warnings`
+
+| File test | Module | Tests |
+|---|---|---|
+| test_extract.py | etl/extract.py | 10 |
+| test_transform.py | etl/transform.py | 15 |
+| test_quality.py | etl/quality_check.py | 12 |
+| test_load.py | etl/load.py | 8 |
+| test_dag_ingest_api.py | dags/ingest_api_dag.py | 7 |
+| test_dag_ingest_csv.py | dags/ingest_csv_dag.py | 9 |
 
 ---
 
@@ -1209,4 +1236,76 @@ docker exec airflow_scheduler airflow dags trigger ingest_myapi
 | Loki không nhận log | Promtail chưa kết nối được | `docker logs promtail --tail=20` |
 | Backup fail | Thiếu postgresql-client-15 trên VM3 | `sudo apt install postgresql-client-15` |
 | `git pull` yêu cầu password | GitHub không nhận password thường | Dùng Personal Access Token thay password |
+| `scp` config rồi reload Prometheus không áp dụng | `scp` tạo inode mới làm mất bind mount | Restart container: `docker restart prometheus` |
+
+---
+
+### 8.12 Bugs đã phát hiện và sửa
+
+Các lỗi được tìm ra trong quá trình review và test toàn bộ source code:
+
+| # | File | Mô tả bug | Mức độ | Cách sửa |
+|---|---|---|---|---|
+| 1 | `docker/dataops-vm1/docker-compose-monitoring.yml` | Promtail không có config file → không collect log được | HIGH | Tạo `monitoring/promtail/promtail-config.yml` + thêm volume mount |
+| 2 | `monitoring/prometheus/alerts.yml` | `rate(container_start_time_seconds)` sai — gauge không dùng với `rate()` | MEDIUM | Đổi sang `changes(container_start_time_seconds{name!=""}[15m]) >= 3` |
+| 3 | `pipeline/dags/data_quality_dag.py` | Dòng `[check_emp, check_weather]` là no-op, không làm gì cả | LOW | Xóa dòng vô nghĩa |
+| 4 | `pipeline/dags/ingest_api_dag.py` | `datetime.utcnow()` deprecated từ Python 3.12 | LOW | Đổi sang `datetime.now(timezone.utc)` |
+| 5 | `pipeline/etl/load.py` | `df.to_sql()` không có try-except → lỗi DB không được log | MEDIUM | Bọc trong try-except với `logger.error` |
+| 6 | `pipeline/dags/ingest_api_dag.py` + `ingest_csv_dag.py` | `pd.read_json(string)` bị lỗi trong pandas mới, cần `StringIO` wrapper | MEDIUM | Đổi thành `pd.read_json(io.StringIO(json_str))` ở tất cả chỗ |
+| 7 | `pipeline/dags/ingest_csv_dag.py` | `df.to_json()` dùng epoch date format cũ | LOW | Thêm `date_format='iso'` |
+
+---
+
+### 8.13 Cấu trúc thư mục thực tế (sau khi hoàn thiện)
+
+```
+dataops/
+├── .github/workflows/
+│   ├── lint-test.yml
+│   └── deploy.yml
+├── infra/ansible/
+│   ├── inventory.ini
+│   ├── playbook-vm1.yml
+│   ├── playbook-vm2.yml
+│   └── playbook-vm3.yml
+├── docker/
+│   ├── dataops-vm1/
+│   │   ├── docker-compose.yml               # Airflow
+│   │   └── docker-compose-monitoring.yml    # Prometheus, Grafana, Loki, Promtail, Alertmanager, cAdvisor, node-exporter, postgres-exporter
+│   ├── dataops-vm2/
+│   │   └── docker-compose.yml               # PostgreSQL + Redis + MinIO
+│   └── dataops-vm3/
+│       └── docker-compose.yml               # Node Exporter
+├── pipeline/
+│   ├── dags/
+│   │   ├── ingest_api_dag.py                # DAG hourly – Open-Meteo API → weather_hanoi
+│   │   ├── ingest_csv_dag.py                # DAG daily – sample.csv → employees
+│   │   └── data_quality_dag.py              # DAG daily – kiểm tra chất lượng dữ liệu
+│   ├── etl/
+│   │   ├── extract.py
+│   │   ├── transform.py
+│   │   ├── load.py
+│   │   └── quality_check.py
+│   ├── tests/
+│   │   ├── test_extract.py        # 10 tests
+│   │   ├── test_transform.py      # 15 tests
+│   │   ├── test_quality.py        # 12 tests
+│   │   ├── test_load.py           # 8 tests
+│   │   ├── test_dag_ingest_api.py # 7 tests
+│   │   └── test_dag_ingest_csv.py # 9 tests
+│   └── requirements.txt
+├── monitoring/
+│   ├── prometheus/
+│   │   ├── prometheus.yml
+│   │   └── alerts.yml
+│   ├── grafana/dashboards/
+│   ├── loki/loki-config.yml
+│   ├── promtail/promtail-config.yml         # (mới thêm)
+│   └── alertmanager/alertmanager.yml
+├── backup/backup.sh
+├── sample_data/sample.csv
+├── .env.example
+├── .gitignore
+└── PLAN.md
+```
 

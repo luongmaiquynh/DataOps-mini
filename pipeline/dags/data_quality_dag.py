@@ -66,6 +66,3 @@ with DAG(
 
     check_emp     = PythonOperator(task_id='check_employees', python_callable=check_employees)
     check_weather = PythonOperator(task_id='check_weather',   python_callable=check_weather)
-
-    # Chạy song song, không phụ thuộc nhau
-    [check_emp, check_weather]

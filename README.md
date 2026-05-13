@@ -16,10 +16,11 @@ Nền tảng DataOps thu nhỏ triển khai trên 3 VM Ubuntu 22.04 (ARM64) ch�
 │  │  (CeleryExecutor)│  │  Redis 7         │  │  Node        │  │
 │  │  Prometheus      │  │  MinIO           │  │  Exporter    │  │
 │  │  Grafana         │  │                  │  │              │  │
-│  │  Loki            │  │                  │  │              │  │
+│  │  Loki + Promtail │  │                  │  │              │  │
 │  │  Alertmanager    │  │                  │  │              │  │
 │  │  cAdvisor        │  │                  │  │              │  │
 │  │  Node Exporter   │  │                  │  │              │  │
+│  │  postgres-exp.   │  │                  │  │              │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -36,9 +37,11 @@ Nền tảng DataOps thu nhỏ triển khai trên 3 VM Ubuntu 22.04 (ARM64) ch�
 | Log Aggregation | Loki + Promtail | latest |
 | Alerting | Alertmanager | latest |
 | Container Metrics | cAdvisor | latest |
+| DB Metrics | postgres-exporter | latest |
 | Infrastructure | Docker Compose v2 | - |
 | IaC | Ansible | - |
 | CI/CD | GitHub Actions | - |
+| Test | pytest + flake8 | - |
 
 ## Cấu trúc thư mục
 
@@ -54,9 +57,13 @@ dataops/
 │   │   ├── transform.py
 │   │   ├── load.py
 │   │   └── quality_check.py
-│   └── tests/              # Unit tests
+│   └── tests/              # Unit tests (61 tests, 6 files)
+│       ├── test_extract.py
 │       ├── test_transform.py
-│       └── test_quality.py
+│       ├── test_quality.py
+│       ├── test_load.py
+│       ├── test_dag_ingest_csv.py
+│       └── test_dag_ingest_api.py
 ├── docker/
 │   ├── dataops-vm1/        # Airflow + Monitoring compose
 │   ├── dataops-vm2/        # PostgreSQL + Redis + MinIO compose
@@ -65,6 +72,7 @@ dataops/
 │   ├── prometheus/         # prometheus.yml + alerts.yml
 │   ├── grafana/dashboards/
 │   ├── loki/               # loki-config.yml
+│   ├── promtail/           # promtail-config.yml
 │   └── alertmanager/       # alertmanager.yml
 ├── infra/ansible/          # Ansible playbooks (vm1, vm2, vm3)
 ├── backup/
@@ -160,11 +168,23 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
+# Lint check
+flake8 etl/ dags/ tests/
+
 # Chạy tất cả tests
 pytest tests/ -v
 
-# Kết quả: 28 tests PASSED
+# Kết quả: 61 passed, 0 warnings
 ```
+
+| File | Tests | Phạm vi |
+|---|---|---|
+| `test_extract.py` | 10 | extract_from_csv, extract_from_api |
+| `test_transform.py` | 15 | clean_data, normalize_columns, fill_missing, cast_types |
+| `test_quality.py` | 12 | run_quality_check, assert_quality, QualityReport |
+| `test_load.py` | 8 | load_to_postgres, load_to_minio |
+| `test_dag_ingest_csv.py` | 9 | task_extract/transform/quality/load (CSV DAG) |
+| `test_dag_ingest_api.py` | 7 | task_extract/transform/quality/load (API DAG) |
 
 ## Monitoring
 
@@ -172,8 +192,9 @@ pytest tests/ -v
 |---|---|---|
 | Airflow UI | http://192.168.64.2:8080 | Quản lý DAGs |
 | Grafana | http://192.168.64.2:3000 | Dashboard metrics |
-| Prometheus | http://192.168.64.2:9090 | Metrics scraping |
+| Prometheus | http://192.168.64.2:9090 | Metrics scraping (5 targets UP) |
 | Alertmanager | http://192.168.64.2:9093 | Alert routing |
+| Flower | http://192.168.64.2:5555 | Celery worker monitor |
 | MinIO Console | http://192.168.64.3:9001 | Object storage UI |
 
 ## Backup
@@ -199,7 +220,7 @@ Giữ backup 7 ngày gần nhất, tự động xóa file cũ hơn.
 ### CI (GitHub Actions)
 Tự động chạy khi push lên nhánh `main`:
 - `flake8` lint check
-- `pytest` unit tests (28 tests)
+- `pytest` unit tests (61 tests)
 
 ### CD (GitHub Actions)
 Deploy lên VM1 khi push `main` (cần cấu hình GitHub Secrets):
@@ -217,5 +238,5 @@ Deploy lên VM1 khi push `main` (cần cấu hình GitHub Secrets):
 | GĐ4 | Monitoring (Prometheus, Grafana, Loki, Alertmanager) | ✅ Hoàn thành |
 | GĐ5 | Backup (script + cron trên VM3) | ✅ Hoàn thành |
 | GĐ6 | CI/CD (GitHub Actions + Ansible playbooks) | ✅ Hoàn thành |
-| GĐ7 | Unit Tests (28/28 passed) | ✅ Hoàn thành |
+| GĐ7 | Unit Tests (61/61 passed, 6 files, flake8 clean) | ✅ Hoàn thành |
 | GĐ8 | Documentation | ✅ Hoàn thành |

@@ -45,10 +45,10 @@ groups:
     rules:
       # Cảnh báo container restart nhiều lần
       - alert: ContainerRestartingTooMuch
-        expr: rate(container_start_time_seconds[15m]) > 0.2
-        for: 5m
+        expr: changes(container_start_time_seconds{name!=""}[15m]) >= 3
+        for: 0m
         labels:
           severity: warning
         annotations:
           summary: "Container {{ $labels.name }} restart liên tục"
-          description: "Container restart nhiều hơn 3 lần trong 15 phút."
+          description: "Container restart >= 3 lần trong 15 phút."
