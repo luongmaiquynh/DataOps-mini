@@ -6,44 +6,27 @@ on:
 
 jobs:
   deploy-vm1:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy Airflow DAGs to VM1
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VM1_HOST }}
-          username: ${{ secrets.VM1_USER }}
-          key: ${{ secrets.VM1_SSH_KEY }}
-          script: |
-            cd /home/dataops/dataops
-            git pull origin main
-            # Reload Airflow DAGs (không cần restart)
-            docker exec airflow_scheduler airflow dags reserialize
-            echo "Deploy DAGs completed at $(date)"
+      - name: Deploy Airflow DAGs
+        run: |
+          cd /home/dataops/dataops
+          git pull origin main
+          docker exec airflow_scheduler airflow dags reserialize
+          echo "Deploy DAGs completed at $(date)"
 
   deploy-monitoring:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
     needs: deploy-vm1
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy monitoring config to VM1
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VM1_HOST }}
-          username: ${{ secrets.VM1_USER }}
-          key: ${{ secrets.VM1_SSH_KEY }}
-          script: |
-            cd /home/dataops/dataops
-            git pull origin main
-            docker compose -f docker/dataops-vm1/docker-compose-monitoring.yml \
-              up -d --force-recreate prometheus alertmanager
-            echo "Monitoring deploy completed at $(date)"
+      - name: Deploy monitoring config
+        run: |
+          cd /home/dataops/dataops
+          git pull origin main
+          docker compose -f docker/dataops-vm1/docker-compose-monitoring.yml \
+            up -d --force-recreate prometheus alertmanager
+          echo "Monitoring deploy completed at $(date)"
