@@ -881,3 +881,332 @@ def test_remove_all_null_rows():
 - [ ] Sample dataset (sample_data/sample.csv)
 - [ ] README.md
 - [ ] .env.example
+
+---
+
+## PHẦN 8 – HƯỚNG DẪN SỬ DỤNG HỆ THỐNG
+
+### 8.1 Cách hệ thống hoạt động (tổng quan)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     LUỒNG DỮ LIỆU                                   │
+│                                                                     │
+│  Nguồn dữ liệu          Xử lý               Lưu trữ                │
+│  ─────────────          ──────               ────────               │
+│  CSV file        ──►                                                │
+│                        Airflow DAG    ──►   PostgreSQL              │
+│  REST API        ──►   (ETL Pipeline)  ──►   MinIO (Data Lake)      │
+│                        trên VM1                                     │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                     LUỒNG GIÁM SÁT                                  │
+│                                                                     │
+│  VM1, VM2, VM3                                                      │
+│  (containers, CPU, RAM, disk)                                       │
+│        │                                                            │
+│        ▼                                                            │
+│  Prometheus (thu thập metrics mỗi 15s)                              │
+│        │                    │                                       │
+│        ▼                    ▼                                       │
+│  Grafana (dashboard)   Alertmanager ──► ntfy.sh ──► Điện thoại     │
+│                                                                     │
+│  Loki (log container) ──► Grafana (xem log)                        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 8.2 Tắt hệ thống đúng kỹ thuật
+
+Tắt theo thứ tự **ngược lại** với khởi động: **VM3 → VM1 → VM2**
+
+> **Lý do:** VM2 chứa PostgreSQL (metadata của Airflow) và Redis (broker). Nếu tắt VM2 trước khi Airflow dừng, các task đang chạy sẽ bị mất trạng thái.
+
+**Bước 1 – Dừng VM3 (Node Exporter + Backup)**
+```bash
+ssh dataops@192.168.64.4
+cd ~/dataops/docker/dataops-vm3
+docker compose down
+sudo shutdown now
+```
+
+**Bước 2 – Dừng VM1 (Airflow + Monitoring)**
+```bash
+ssh dataops@192.168.64.2
+
+# Dừng Airflow trước (đợi task đang chạy hoàn thành)
+cd ~/dataops/docker/dataops-vm1
+docker compose down
+
+# Dừng Monitoring
+docker compose -f docker-compose-monitoring.yml down
+
+sudo shutdown now
+```
+
+**Bước 3 – Dừng VM2 (Database + Storage) — tắt sau cùng**
+```bash
+ssh dataops@192.168.64.3
+cd ~/dataops/docker/dataops-vm2
+docker compose down
+sudo shutdown now
+```
+
+> **Lưu ý:** Dữ liệu PostgreSQL và MinIO được lưu trong Docker named volumes (`postgres_data`, `minio_data`) — **không bị mất** khi tắt container hoặc VM đúng cách.
+
+---
+
+### 8.3 Khởi động hệ thống từ đầu
+
+Nếu tất cả VM đang tắt, khởi động theo thứ tự: **VM2 trước → VM1 → VM3**
+
+**Bước 1 – Bật VM2 (Database + Storage)**
+```bash
+# Bật VM2 trong UTM, sau đó:
+ssh dataops@192.168.64.3
+cd ~/dataops/docker/dataops-vm2
+docker compose up -d
+
+# Kiểm tra:
+docker ps
+# Phải thấy: postgres_db, redis_cache, minio_storage đều Up
+```
+
+**Bước 2 – Bật VM1 (Airflow + Monitoring)**
+```bash
+ssh dataops@192.168.64.2
+
+# Khởi động Airflow
+cd ~/dataops/docker/dataops-vm1
+docker compose up -d
+
+# Khởi động Monitoring
+docker compose -f docker-compose-monitoring.yml up -d
+
+# Kiểm tra:
+docker ps
+# Phải thấy: airflow_webserver (healthy), airflow_scheduler,
+#            airflow_worker, airflow_flower, prometheus,
+#            grafana, loki, alertmanager, cadvisor, node_exporter
+```
+
+**Bước 3 – Bật VM3 (Node Exporter + Backup)**
+```bash
+ssh dataops@192.168.64.4
+cd ~/dataops/docker/dataops-vm3
+docker compose up -d
+```
+
+---
+
+### 8.3 Truy cập các giao diện web
+
+| Giao diện | URL | Tài khoản mặc định | Mô tả |
+|---|---|---|---|
+| **Airflow UI** | http://192.168.64.2:8080 | admin / admin | Quản lý, trigger, xem log DAGs |
+| **Grafana** | http://192.168.64.2:3000 | admin / admin | Dashboard metrics & logs |
+| **Prometheus** | http://192.168.64.2:9090 | — | Query metrics, xem alert rules |
+| **Alertmanager** | http://192.168.64.2:9093 | — | Xem alert đang firing |
+| **Celery Flower** | http://192.168.64.2:5555 | — | Monitor Celery workers |
+| **MinIO Console** | http://192.168.64.3:9001 | minioadmin / (từ .env) | Xem file trong data lake |
+
+---
+
+### 8.4 Vận hành Data Pipeline
+
+#### Xem danh sách DAGs
+```bash
+ssh dataops@192.168.64.2
+docker exec airflow_scheduler airflow dags list
+```
+
+| DAG | Nguồn | Lịch chạy | Đích |
+|---|---|---|---|
+| `ingest_csv` | `sample_data/sample.csv` | Hàng ngày lúc 0:00 | PostgreSQL `employees` + MinIO |
+| `ingest_weather_api` | Open-Meteo API (Hà Nội) | Mỗi giờ | PostgreSQL `weather_hanoi` + MinIO |
+| `data_quality` | PostgreSQL | Hàng ngày lúc 1:00 | Báo cáo chất lượng |
+
+#### Bật/tắt DAG
+```bash
+# Bật DAG
+docker exec airflow_scheduler airflow dags unpause <dag_id>
+
+# Tắt DAG
+docker exec airflow_scheduler airflow dags pause <dag_id>
+```
+
+#### Trigger DAG thủ công
+```bash
+docker exec airflow_scheduler airflow dags trigger ingest_weather_api
+```
+
+#### Xem lịch sử chạy
+```bash
+docker exec airflow_scheduler airflow dags list-runs -d ingest_weather_api
+```
+
+#### Xem log task cụ thể
+```bash
+docker exec airflow_scheduler airflow tasks logs ingest_weather_api extract <run_id>
+```
+
+---
+
+### 8.5 Truy vấn dữ liệu trong PostgreSQL
+
+```bash
+# Kết nối từ macOS
+ssh dataops@192.168.64.3 "docker exec postgres_db psql -U dataops -d dataops_db -c '<câu query>'"
+
+# Ví dụ:
+# Xem dữ liệu nhân viên
+ssh dataops@192.168.64.3 "docker exec postgres_db psql -U dataops -d dataops_db -c 'SELECT * FROM employees;'"
+
+# Xem dữ liệu thời tiết gần nhất
+ssh dataops@192.168.64.3 "docker exec postgres_db psql -U dataops -d dataops_db -c 'SELECT * FROM weather_hanoi ORDER BY time DESC LIMIT 5;'"
+
+# Đếm số rows theo ngày
+ssh dataops@192.168.64.3 "docker exec postgres_db psql -U dataops -d dataops_db -c 'SELECT DATE(time), count(*) FROM weather_hanoi GROUP BY DATE(time);'"
+```
+
+---
+
+### 8.6 Xem file trong MinIO (Data Lake)
+
+1. Mở http://192.168.64.3:9001
+2. Đăng nhập với `minioadmin` / password trong `.env`
+3. Vào bucket `dataops-lake`
+4. Cấu trúc thư mục:
+   ```
+   dataops-lake/
+   ├── raw/employees/
+   │   └── YYYY-MM-DD.csv      ← từ ingest_csv DAG
+   └── raw/weather/
+       └── YYYY-MM-DD.csv      ← từ ingest_weather_api DAG
+   ```
+
+---
+
+### 8.7 Hệ thống cảnh báo (Alert)
+
+**Cách nhận alert:**
+1. Mở https://ntfy.sh/dataops-mini-alerts trên browser
+2. Hoặc cài app **ntfy** trên điện thoại → subscribe topic `dataops-mini-alerts`
+
+**Các alert đang được theo dõi:**
+
+| Alert | Điều kiện | Mức độ |
+|---|---|---|
+| `InstanceDown` | Service không phản hồi > 1 phút | critical |
+| `HighCpuUsage` | CPU > 80% liên tục 5 phút | warning |
+| `LowMemory` | RAM còn < 10% | warning |
+| `DiskSpaceLow` | Disk còn < 15% | warning |
+| `ContainerRestartingTooMuch` | Container restart > 3 lần / 10 phút | critical |
+
+**Test alert thủ công:**
+```bash
+curl -s -X POST http://192.168.64.2:9093/api/v2/alerts \
+  -H 'Content-Type: application/json' \
+  -d '[{"labels": {"alertname": "TestAlert", "severity": "critical"}, "annotations": {"summary": "Test"}}]'
+```
+
+---
+
+### 8.8 Backup & Restore
+
+**Xem backup hiện có:**
+```bash
+ssh dataops@192.168.64.4 "ls -lh /opt/backup/postgres/"
+```
+
+**Chạy backup thủ công:**
+```bash
+ssh dataops@192.168.64.4 "bash /home/dataops/backup.sh"
+```
+
+**Restore từ backup:**
+```bash
+# Copy file backup từ VM3 về VM2
+scp dataops@192.168.64.4:/opt/backup/postgres/employees_YYYY-MM-DD_HHMMSS.sql.gz .
+
+# Giải nén và restore
+gunzip employees_YYYY-MM-DD_HHMMSS.sql.gz
+ssh dataops@192.168.64.3 "docker exec -i postgres_db psql -U dataops -d dataops_db" < employees_YYYY-MM-DD_HHMMSS.sql
+```
+
+**Backup tự động:** Chạy lúc **2:00 AM hàng ngày** qua cron trên VM3. Giữ tối đa 7 ngày gần nhất, tự xóa file cũ hơn.
+
+---
+
+### 8.9 Chạy Unit Tests
+
+```bash
+cd /Users/luongmaiquynh/Documents/dataops/pipeline
+source .venv/bin/activate      # hoặc: python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Chạy tất cả tests
+pytest tests/ -v
+
+# Chạy test cụ thể
+pytest tests/test_transform.py -v
+pytest tests/test_quality.py -v
+```
+
+**Kết quả mong đợi:** `28 passed`
+
+---
+
+### 8.10 Thêm nguồn dữ liệu mới
+
+Để thêm pipeline mới từ một API khác:
+
+1. **Tạo DAG mới** trong `pipeline/dags/`:
+```python
+# pipeline/dags/ingest_myapi_dag.py
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime
+
+API_URL = 'https://api.example.com/data'
+
+def task_extract(**context):
+    import requests, pandas as pd
+    resp = requests.get(API_URL, timeout=30)
+    df = pd.DataFrame(resp.json())
+    context['ti'].xcom_push(key='raw_data', value=df.to_json())
+
+# ... thêm task transform, quality, load tương tự ingest_weather_api
+```
+
+2. **Trên VM1**, DAG sẽ tự động được load (volume mount):
+```bash
+# DAG files được mount từ ~/dataops/pipeline/dags/ vào container
+# Sau khi git pull, Airflow scheduler tự phát hiện DAG mới trong 30s
+ssh dataops@192.168.64.2
+cd ~/dataops && git pull origin main
+```
+
+3. **Kiểm tra DAG mới:**
+```bash
+docker exec airflow_scheduler airflow dags list | grep myapi
+docker exec airflow_scheduler airflow dags trigger ingest_myapi
+```
+
+---
+
+### 8.11 Xử lý sự cố thường gặp
+
+| Triệu chứng | Nguyên nhân có thể | Cách xử lý |
+|---|---|---|
+| DAG bị `queued` mãi không chạy | DAG đang paused | `airflow dags unpause <dag_id>` |
+| DAG bị `queued` sau khi unpause | Worker không kết nối Redis | `docker logs airflow_worker --tail=20` |
+| Task `failed` | Lỗi code hoặc kết nối DB | Xem log: `airflow tasks logs <dag> <task> <run_id>` |
+| PostgreSQL không kết nối được | VM2 chưa bật hoặc container chưa Up | `ssh dataops@192.168.64.3 "docker ps"` |
+| Grafana không có data | Prometheus chưa scrape được target | Vào http://192.168.64.2:9090/targets kiểm tra |
+| Loki không nhận log | Promtail chưa kết nối được | `docker logs promtail --tail=20` |
+| Backup fail | Thiếu postgresql-client-15 trên VM3 | `sudo apt install postgresql-client-15` |
+| `git pull` yêu cầu password | GitHub không nhận password thường | Dùng Personal Access Token thay password |
+
