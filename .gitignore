@@ -1,65 +1,25 @@
-# ========================
-# Môi trường & mật khẩu
-# ========================
+# Các file môi trường và mật khẩu
 .env
 .env.local
-*.env
 
-# ========================
-# Python
-# ========================
+# Thư mục rác của Python
 __pycache__/
 *.py[cod]
 *$py.class
 .venv/
 venv/
 ENV/
-.pytest_cache/
-.coverage
-htmlcov/
 
-# ========================
-# Logs & dữ liệu nặng
-# ========================
+# Nhật ký và dữ liệu nặng
 *.log
-logs/
 *.csv
 *.json
 *.xlsx
 !sample_data/sample.csv
 
-# ========================
-# Docker
-# ========================
-# Bỏ qua volume data sinh ra lúc chạy
-postgres_data/
-minio_data/
-airflow/logs/
-
-# ========================
-# Airflow
-# ========================
-airflow.cfg
-airflow.db
-standalone_admin_password.txt
-
-# ========================
-# Ansible
-# ========================
-*.retry
-infra/ansible/*.log
-
-# ========================
-# File hệ thống macOS
-# ========================
+# File hệ thống Mac
 .DS_Store
-.AppleDouble
-.LSOverride
 
-# ========================
-# IDE
-# ========================
+# Thư mục IDE
 .vscode/
 .idea/
-*.swp
-*.swo
