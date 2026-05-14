@@ -539,128 +539,297 @@ docker compose -f docker/dataops-vm3/docker-compose.yml up -d
 
 **pipeline/etl/extract.py**
 ```python
-import requests, pandas as pd, logging
+import requests
+import pandas as pd
+import logging
+
 logger = logging.getLogger(__name__)
+
 
 def extract_from_api(url: str, params: dict = None) -> pd.DataFrame:
     try:
         resp = requests.get(url, params=params, timeout=30)
         resp.raise_for_status()
-        logger.info(f"Extracted from {url}")
-        return pd.DataFrame(resp.json())
+        data = resp.json()
+        if isinstance(data, list):
+            df = pd.DataFrame(data)
+        elif isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, list):
+                    df = pd.DataFrame(value)
+                    break
+            else:
+                df = pd.DataFrame([data])
+        else:
+            raise ValueError(f"Unexpected data format: {type(data)}")
+        logger.info(f"Extracted {len(df)} rows from {url}")
+        return df
+    except requests.exceptions.RequestException as e:
+        logger.error(f"API request failed: {e}")
+        raise
     except Exception as e:
         logger.error(f"Extract failed: {e}")
         raise
 
+
 def extract_from_csv(filepath: str) -> pd.DataFrame:
-    df = pd.read_csv(filepath)
-    logger.info(f"Loaded {len(df)} rows from {filepath}")
-    return df
+    try:
+        df = pd.read_csv(filepath)
+        logger.info(f"Loaded {len(df)} rows from {filepath}")
+        return df
+    except FileNotFoundError:
+        logger.error(f"File not found: {filepath}")
+        raise
+    except Exception as e:
+        logger.error(f"CSV read failed: {e}")
+        raise
 ```
 
 **pipeline/etl/transform.py**
 ```python
-import pandas as pd, logging
+import pandas as pd
+import logging
+
 logger = logging.getLogger(__name__)
+
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     initial = len(df)
-    df = df.drop_duplicates().dropna(how='all')
-    logger.info(f"Removed {initial - len(df)} rows")
+    df = df.drop_duplicates()
+    df = df.dropna(how='all')
+    removed = initial - len(df)
+    if removed > 0:
+        logger.info(f"Removed {removed} duplicate/empty rows. Remaining: {len(df)}")
+    return df.reset_index(drop=True)
+
+
+def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    df.columns = [col.strip().lower().replace(' ', '_') for col in df.columns]
     return df
 
-def normalize_data(df: pd.DataFrame, schema: dict) -> pd.DataFrame:
+
+def fill_missing(df: pd.DataFrame, fill_values: dict) -> pd.DataFrame:
+    for col, value in fill_values.items():
+        if col in df.columns:
+            before = df[col].isnull().sum()
+            df[col] = df[col].fillna(value)
+            if before > 0:
+                logger.info(f"Filled {before} missing values in '{col}' with {value}")
+    return df
+
+
+def cast_types(df: pd.DataFrame, schema: dict) -> pd.DataFrame:
     for col, dtype in schema.items():
         if col in df.columns:
-            df[col] = df[col].astype(dtype)
+            try:
+                df[col] = df[col].astype(dtype)
+            except Exception as e:
+                logger.warning(f"Cannot cast column '{col}' to {dtype}: {e}")
     return df
 ```
 
 **pipeline/etl/quality_check.py**
 ```python
 import pandas as pd
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
 from typing import List
+
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class QualityReport:
-    null_count: dict
-    duplicate_count: int
-    schema_errors: List[str]
-    invalid_values: dict
-    passed: bool
+    null_count: dict = field(default_factory=dict)
+    duplicate_count: int = 0
+    schema_errors: List[str] = field(default_factory=list)
+    passed: bool = True
 
-def run_quality_check(df: pd.DataFrame, expected_schema: dict) -> QualityReport:
+    def summary(self) -> str:
+        return (
+            f"QualityReport | nulls={self.null_count} | "
+            f"duplicates={self.duplicate_count} | "
+            f"schema_errors={self.schema_errors} | "
+            f"passed={self.passed}"
+        )
+
+
+def run_quality_check(df: pd.DataFrame, expected_columns: List[str] = None) -> QualityReport:
     null_count = df.isnull().sum().to_dict()
     duplicate_count = int(df.duplicated().sum())
-    schema_errors = [c for c in expected_schema if c not in df.columns]
-    invalid_values = {}
+    schema_errors = []
+    if expected_columns:
+        schema_errors = [c for c in expected_columns if c not in df.columns]
     passed = (
-        all(v == 0 for v in null_count.values()) and
-        duplicate_count == 0 and
-        len(schema_errors) == 0
+        all(v == 0 for v in null_count.values())
+        and duplicate_count == 0
+        and len(schema_errors) == 0
     )
-    return QualityReport(null_count, duplicate_count, schema_errors, invalid_values, passed)
+    report = QualityReport(
+        null_count=null_count,
+        duplicate_count=duplicate_count,
+        schema_errors=schema_errors,
+        passed=passed,
+    )
+    logger.info(report.summary())
+    return report
+
+
+def assert_quality(df: pd.DataFrame, expected_columns: List[str] = None) -> None:
+    report = run_quality_check(df, expected_columns)
+    if not report.passed:
+        raise ValueError(f"Data quality check failed: {report.summary()}")
 ```
 
 **pipeline/etl/load.py**
 ```python
-import pandas as pd, logging
+import io
+import logging
+
+import boto3
+import pandas as pd
+from botocore.exceptions import ClientError
+from sqlalchemy import create_engine
+
 logger = logging.getLogger(__name__)
 
-def load_to_postgres(df: pd.DataFrame, table: str, engine):
-    df.to_sql(table, engine, if_exists='append', index=False)
-    logger.info(f"Loaded {len(df)} rows to '{table}'")
 
-def load_to_minio(df: pd.DataFrame, bucket: str, object_name: str, client):
-    body = df.to_csv(index=False).encode()
-    client.put_object(Bucket=bucket, Key=object_name, Body=body)
-    logger.info(f"Uploaded to s3://{bucket}/{object_name}")
+def get_postgres_engine(conn_str: str):
+    return create_engine(conn_str)
+
+
+def load_to_postgres(df: pd.DataFrame, table: str, conn_str: str, if_exists: str = "append") -> int:
+    engine = get_postgres_engine(conn_str)
+    try:
+        df.to_sql(table, engine, if_exists=if_exists, index=False)
+        logger.info("Loaded %d rows into PostgreSQL table '%s'", len(df), table)
+        return len(df)
+    except Exception as e:
+        logger.error("Failed to load data into PostgreSQL table '%s': %s", table, e)
+        raise
+
+
+def get_minio_client(endpoint: str, access_key: str, secret_key: str):
+    return boto3.client(
+        "s3",
+        endpoint_url=f"http://{endpoint}",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+    )
+
+
+def load_to_minio(df: pd.DataFrame, bucket: str, object_name: str,
+                  endpoint: str, access_key: str, secret_key: str) -> None:
+    client = get_minio_client(endpoint, access_key, secret_key)
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    body = csv_buffer.getvalue().encode("utf-8")
+    try:
+        client.put_object(Bucket=bucket, Key=object_name, Body=body)
+        logger.info("Uploaded %d rows to s3://%s/%s", len(df), bucket, object_name)
+    except ClientError as e:
+        logger.error("MinIO upload failed: %s", e)
+        raise
 ```
 
 #### Bước 3.3 – Airflow DAG
 
 **pipeline/dags/ingest_api_dag.py**
 ```python
+import os
+from datetime import datetime, timedelta, timezone
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from datetime import datetime, timedelta
-from etl.extract import extract_from_api
-from etl.transform import clean_data
-from etl.load import load_to_postgres, load_to_minio
-from etl.quality_check import run_quality_check
 
-default_args = {
-    'owner': 'dataops',
-    'retries': 3,
-    'retry_delay': timedelta(minutes=5),
+API_URL = 'https://api.open-meteo.com/v1/forecast'
+API_PARAMS = {
+    'latitude': 21.0285,    # Hà Nội
+    'longitude': 105.8542,
+    'hourly': 'temperature_2m,windspeed_10m',
+    'forecast_days': 1,
 }
+POSTGRES_CONN = os.getenv(
+    'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN',
+    'postgresql+psycopg2://dataops:***REMOVED***@192.168.64.3:5432/dataops_db'
+)
+MINIO_ENDPOINT = os.getenv('MINIO_HOST', '192.168.64.3') + ':' + os.getenv('MINIO_PORT', '9000')
+MINIO_ACCESS   = os.getenv('MINIO_ROOT_USER', 'minioadmin')
+MINIO_SECRET   = os.getenv('MINIO_ROOT_PASSWORD', '***REMOVED***')
+MINIO_BUCKET   = os.getenv('MINIO_BUCKET', 'dataops-lake')
+
+default_args = {'owner': 'dataops', 'retries': 3, 'retry_delay': timedelta(minutes=5)}
+
+
+def task_extract(**context):
+    import requests, pandas as pd
+    resp = requests.get(API_URL, params=API_PARAMS, timeout=30)
+    resp.raise_for_status()
+    hourly = resp.json().get('hourly', {})
+    if not hourly:
+        raise ValueError('API response missing hourly data')
+    df = pd.DataFrame(hourly)
+    context['ti'].xcom_push(key='raw_data', value=df.to_json())
+
+
+def task_transform(**context):
+    import io, pandas as pd
+    from etl.transform import clean_data, normalize_columns
+    raw_json = context['ti'].xcom_pull(key='raw_data', task_ids='extract')
+    df = pd.read_json(io.StringIO(raw_json))
+    df = normalize_columns(df)
+    df = clean_data(df)
+    df['ingested_at'] = datetime.now(timezone.utc).isoformat()
+    context['ti'].xcom_push(key='clean_data', value=df.to_json())
+
+
+def task_quality(**context):
+    import io, pandas as pd
+    from etl.quality_check import assert_quality
+    clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
+    df = pd.read_json(io.StringIO(clean_json))
+    assert_quality(df, expected_columns=['time', 'temperature_2m', 'windspeed_10m'])
+
+
+def task_load(**context):
+    import io, pandas as pd
+    from datetime import date
+    from etl.load import load_to_postgres, load_to_minio
+    clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
+    df = pd.read_json(io.StringIO(clean_json))
+    load_to_postgres(df, table='weather_hanoi', conn_str=POSTGRES_CONN)
+    load_to_minio(df, MINIO_BUCKET, f'raw/weather/{date.today()}.csv',
+                  MINIO_ENDPOINT, MINIO_ACCESS, MINIO_SECRET)
+
 
 with DAG(
     dag_id='ingest_weather_api',
     default_args=default_args,
+    description='Ingest dữ liệu thời tiết Hà Nội từ Open-Meteo API',
     schedule_interval='@hourly',
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 5, 12),
     catchup=False,
+    tags=['ingest', 'api', 'weather'],
 ) as dag:
-    extract   = PythonOperator(task_id='extract',       python_callable=extract_from_api)
-    quality   = PythonOperator(task_id='quality_check', python_callable=run_quality_check)
-    transform = PythonOperator(task_id='transform',     python_callable=clean_data)
-    load      = PythonOperator(task_id='load',          python_callable=load_to_postgres)
+    extract   = PythonOperator(task_id='extract',   python_callable=task_extract)
+    transform = PythonOperator(task_id='transform', python_callable=task_transform)
+    quality   = PythonOperator(task_id='quality',   python_callable=task_quality)
+    load      = PythonOperator(task_id='load',      python_callable=task_load)
 
-    extract >> quality >> transform >> load
+    extract >> transform >> quality >> load
 ```
 
 #### Bước 3.4 – pipeline/requirements.txt
 ```
 apache-airflow==2.7.1
-pandas==2.2.0
+pandas==2.0.3
 requests==2.31.0
-sqlalchemy==2.0.0
+sqlalchemy==1.4.52
 psycopg2-binary==2.9.9
 boto3==1.34.0
 redis==5.0.0
 ```
+
+> **Lý do downgrade:** Airflow 2.7.1 chạy Python 3.8 — cần `pandas==2.0.3` và `sqlalchemy==1.4.52` để tương thích. pandas 3.x và SQLAlchemy 2.x yêu cầu Python 3.9+.
 
 ---
 
