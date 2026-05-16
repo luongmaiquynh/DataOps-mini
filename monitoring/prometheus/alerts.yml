@@ -41,6 +41,18 @@ groups:
           summary: "Disk sắp đầy trên {{ $labels.instance }}"
           description: "Disk còn < 15% dung lượng trống."
 
+  - name: database
+    rules:
+      # Cảnh báo khi PostgreSQL down
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL down trên {{ $labels.instance }}"
+          description: "PostgreSQL không kết nối được hơn 1 phút."
+
   - name: containers
     rules:
       # Cảnh báo container restart nhiều lần
