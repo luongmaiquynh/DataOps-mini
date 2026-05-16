@@ -74,7 +74,7 @@ dataops/
 │   ├── loki/               # loki-config.yml
 │   ├── promtail/           # promtail-config.yml
 │   └── alertmanager/       # alertmanager.yml
-├── infra/ansible/          # Ansible playbooks (vm1, vm2, vm3)
+├── infra/ansible/          # Ansible IaC (ansible.cfg, site.yml, 3 playbooks)
 ├── backup/
 │   └── backup.sh           # PostgreSQL backup script
 ├── .github/workflows/
@@ -115,14 +115,18 @@ REDIS_PORT=6379
 ### Deploy bằng Ansible
 
 ```bash
-# Deploy VM1 (Airflow + Monitoring)
-ansible-playbook -i infra/ansible/inventory.ini infra/ansible/playbook-vm1.yml
+cd infra/ansible
 
-# Deploy VM2 (PostgreSQL + Redis + MinIO)
-ansible-playbook -i infra/ansible/inventory.ini infra/ansible/playbook-vm2.yml
+# Deploy toàn bộ hệ thống (vm2 → vm1 → vm3)
+ansible-playbook site.yml --ask-become-pass
 
-# Deploy VM3 (Node Exporter + Backup)
-ansible-playbook -i infra/ansible/inventory.ini infra/ansible/playbook-vm3.yml
+# Hoặc deploy riêng từng VM
+ansible-playbook playbook-vm1.yml --ask-become-pass
+ansible-playbook playbook-vm2.yml --ask-become-pass
+ansible-playbook playbook-vm3.yml --ask-become-pass
+
+# Kiểm tra kết nối trước khi deploy
+ansible all -m ping
 ```
 
 ### Deploy thủ công
@@ -191,7 +195,7 @@ pytest tests/ -v
 | Service | URL | Mô tả |
 |---|---|---|
 | Airflow UI | http://192.168.64.2:8080 | Quản lý DAGs |
-| Grafana | http://192.168.64.2:3000 | Dashboard metrics |
+| Grafana | http://192.168.64.2:3000 | Dashboard metrics (admin / ***REMOVED***) |
 | Prometheus | http://192.168.64.2:9090 | Metrics scraping (5 targets UP) |
 | Alertmanager | http://192.168.64.2:9093 | Alert routing |
 | Flower | http://192.168.64.2:5555 | Celery worker monitor |
@@ -223,10 +227,10 @@ Tự động chạy khi push lên nhánh `main`:
 - `pytest` unit tests (61 tests)
 
 ### CD (GitHub Actions)
-Deploy lên VM1 khi push `main` (cần cấu hình GitHub Secrets):
-- `VM1_HOST`: IP của VM1
-- `VM1_USER`: username SSH
-- `VM1_SSH_KEY`: nội dung private key
+Deploy lên VM1 khi push `main` — dùng **self-hosted runner** cài trên VM1:
+- Không cần GitHub Secrets SSH (runner chạy trực tiếp trên VM1)
+- Runner được cài như systemd service, tự khởi động khi VM1 reboot
+- Kiểm tra runner: `sudo systemctl status actions.runner.*.service`
 
 ## Tiến độ
 

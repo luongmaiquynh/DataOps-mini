@@ -1,5 +1,5 @@
 # BÁO CÁO TIẾN ĐỘ DỰ ÁN: Mini DataOps Platform
-**Ngày báo cáo:** 13/05/2026  
+**Ngày báo cáo:** 16/05/2026  
 **Người thực hiện:** Lương Mai Quỳnh  
 **Mentor:** *(tên mentor)*  
 **Trạng thái:** ✅ HOÀN THÀNH 100%
@@ -402,8 +402,8 @@ File: `backup/backup.sh`
 - `prometheus`, `node-exporter-vm1`, `node-exporter-vm3` (192.168.64.4:9100)
 - `cadvisor`, `postgres-exporter` (service name `postgres-exporter:9187` trong network monitoring)
 
-#### ✅ Alert rules (5 rules)
-- `InstanceDown`, `HighCpuUsage` (>80%), `LowMemory` (<10%), `DiskSpaceLow` (<15%), `ContainerRestartingTooMuch`
+#### ✅ Alert rules (6 rules)
+- `InstanceDown`, `HighCpuUsage` (>80%), `LowMemory` (<10%), `DiskSpaceLow` (<15%), `ContainerRestartingTooMuch`, `PostgreSQLDown` (pg_up==0)
 
 **Các sự cố đã xử lý:**
 - Loki restart liên tục do permission denied `/tmp/loki/rules` → đổi `path_prefix=/loki`, thêm `user: "0"` trong compose
@@ -411,6 +411,8 @@ File: `backup/backup.sh`
 - Promtail không thu thập log do thiếu file config → tạo `monitoring/promtail/promtail-config.yml` và thêm volume mount vào compose
 - Alert rule `ContainerRestartingTooMuch` dùng `rate()` trên gauge (sai) → sửa thành `changes(...[15m]) >= 3`
 - Node Exporter VM3 không chạy → deploy docker-compose.yml lên VM3 qua SSH
+- `alerts.yml` không được mount vào prometheus container → thêm volume mount vào `docker-compose-monitoring.yml`, recreate container
+- VM3 node-exporter thiếu host filesystem mount → thêm `/proc`, `/sys`, `/` volumes vào `docker/dataops-vm3/docker-compose.yml` để Prometheus thấy disk thật của VM3
 
 ---
 
@@ -428,19 +430,24 @@ Tự động chạy khi push lên nhánh `main`:
 
 #### ✅ GitHub Actions – CD (deploy.yml)
 
-Deploy lên VM1 khi push `main`:
-- `git pull` trên VM1
-- `docker compose restart` DAGs và monitoring
+Deploy lên VM1 khi push `main` — dùng **self-hosted runner** cài trên VM1:
+- Runner được cài như systemd service (`actions.runner.*.service`), tự khởi động khi VM1 reboot
+- Không cần GitHub Secrets SSH vì runner chạy trực tiếp trên VM1 (VM1 không có public IP)
+- Job `deploy-vm1`: `git pull` + `airflow dags reserialize`
+- Job `deploy-monitoring`: `docker compose up -d --force-recreate prometheus alertmanager`
 
-*(CD cần GitHub Secrets: `VM1_HOST`, `VM1_USER`, `VM1_SSH_KEY` để hoạt động với VM public)*
+#### ✅ Ansible IaC (4 file)
 
-#### ✅ Ansible Playbooks (3 VM)
+| File | Mô tả |
+|---|---|
+| `ansible.cfg` | Cấu hình mặc định: host_key_checking=False, result_format=yaml |
+| `inventory.ini` | Khai báo 3 VM với SSH key `~/.ssh/id_ed25519` |
+| `site.yml` | Entrypoint chạy toàn bộ theo thứ tự: vm2 → vm1 → vm3 |
+| `playbook-vm1.yml` | apt update, docker, git pull, copy .env, compose up Airflow + Monitoring |
+| `playbook-vm2.yml` | apt update, docker, git pull, compose up PostgreSQL/Redis/MinIO |
+| `playbook-vm3.yml` | apt update, cài postgresql-client-15, tạo backup dir + log file, copy backup.sh, setup cron, deploy node-exporter |
 
-| Playbook | VM | Tasks |
-|---|---|---|
-| `playbook-vm1.yml` | VM1 | apt update, docker, git pull, copy .env, compose up Airflow + Monitoring |
-| `playbook-vm2.yml` | VM2 | apt update, docker, git pull, compose up PostgreSQL/Redis/MinIO |
-| `playbook-vm3.yml` | VM3 | apt update, cài postgresql-client-15, tạo backup dir, copy backup.sh, setup cron |
+**Đã test thực tế:** `ansible all -m ping` → 3/3 VM pong ✅; `ansible-playbook playbook-vm3.yml` → ok=9, changed=5, failed=0 ✅
 
 ---
 
@@ -522,6 +529,9 @@ Deploy lên VM1 khi push `main`:
 | Alert rule `ContainerRestartingTooMuch` sai PromQL | `rate()` chỉ hợp lệ với counter; `container_start_time_seconds` là gauge | Đổi sang `changes(container_start_time_seconds{name!=""}[15m]) >= 3` |
 | Promtail không thu thập log container | Thiếu file `promtail-config.yml`; volume mount trỏ đến file không tồn tại | Tạo `monitoring/promtail/promtail-config.yml` + thêm volume mount vào compose |
 | `data_quality_dag.py` có dòng lệnh thừa cuối file | Dòng `[check_emp, check_weather]` là list expression không làm gì (no-op) | Xóa dòng thừa — task dependency đã được khai báo đúng ở trên |
+| `alerts.yml` không được mount vào prometheus container | docker-compose-monitoring.yml thiếu volume mount cho `alerts.yml` | Thêm `alerts.yml:/etc/prometheus/alerts.yml:ro` vào volumes của prometheus, recreate container |
+| VM3 node-exporter không báo disk thật của host | docker-compose.yml VM3 thiếu volume mount `/proc`, `/sys`, `/` → exporter chỉ thấy filesystem container | Thêm host filesystem mounts + `--path.procfs`, `--path.sysfs`, `--path.rootfs` vào command |
+| `DiskSpaceLow` không có rule cho PostgreSQL down | Chỉ có `InstanceDown` (up==0) nhưng postgres-exporter vẫn chạy khi DB tắt | Thêm rule `PostgreSQLDown` với `expr: pg_up == 0` vào `alerts.yml` |
 
 ---
 
@@ -535,8 +545,11 @@ Deploy lên VM1 khi push `main`:
 | Unit tests: 61/61 PASSED (6 file test, 0 warnings, flake8 clean) | ✅ Hoàn thành |
 | Monitoring stack: 8 container Up trên VM1 (thêm postgres-exporter) | ✅ Hoàn thành |
 | Backup script + cron 2:00 AM hàng ngày trên VM3 | ✅ Hoàn thành |
-| Ansible playbooks cho VM1, VM2, VM3 | ✅ Hoàn thành |
+| Ansible IaC: ansible.cfg, site.yml, 3 playbooks — đã test ping + playbook-vm3 | ✅ Hoàn thành |
 | GitHub Actions CI – Lint & Test: PASSING | ✅ Hoàn thành |
+| GitHub Actions CD – Self-hosted runner trên VM1: PASSING | ✅ Hoàn thành |
+| Simulate service failure: PostgreSQL down → `PostgreSQLDown` FIRING trong Prometheus | ✅ Hoàn thành |
+| Simulate disk full: VM3 86% used → `DiskSpaceLow` FIRING trong Prometheus | ✅ Hoàn thành |
 | README đầy đủ với kiến trúc và hướng dẫn | ✅ Hoàn thành |
 
 ---
@@ -563,10 +576,12 @@ dataops/
 │   └── dataops-vm3/
 │       └── docker-compose.yml             ✅ Node Exporter
 ├── infra/ansible/
-│   ├── inventory.ini          ✅ 3 VM đã khai báo
+│   ├── ansible.cfg            ✅ host_key_checking=False, result_format=yaml
+│   ├── inventory.ini          ✅ 3 VM, SSH key id_ed25519
+│   ├── site.yml               ✅ Entrypoint: vm2 → vm1 → vm3
 │   ├── playbook-vm1.yml       ✅ Deploy Airflow + Monitoring
 │   ├── playbook-vm2.yml       ✅ Deploy PostgreSQL + Redis + MinIO
-│   └── playbook-vm3.yml       ✅ Deploy Node Exporter + Backup setup
+│   └── playbook-vm3.yml       ✅ Deploy Node Exporter + Backup setup + log file
 ├── backup/
 │   └── backup.sh              ✅ pg_dump + gzip + cron 2:00 AM VM3
 ├── pipeline/
@@ -610,9 +625,10 @@ Dự án **Mini DataOps Platform** đã hoàn thành 100% tất cả 8 giai đo�
 - **3 VM Ubuntu 22.04** chạy ổn định với các service phân tán đúng vai trò
 - **Airflow CeleryExecutor** điều phối pipeline dữ liệu tự động
 - **ETL pipeline** với kiểm tra chất lượng dữ liệu, lưu vào PostgreSQL và MinIO
-- **Monitoring stack** 8 container: Prometheus, Grafana, Loki, Promtail, Alertmanager, cAdvisor, Node Exporter, postgres-exporter — 5/5 targets UP
-- **Backup tự động** hàng ngày lúc 2:00 AM với giữ lịch sử 7 ngày
+- **Monitoring stack** 8 container: Prometheus, Grafana, Loki, Promtail, Alertmanager, cAdvisor, Node Exporter, postgres-exporter — 5/5 targets UP; **6 alert rules** (thêm PostgreSQLDown)
+- **Backup tự động** hàng ngày lúc 2:00 AM với giữ lịch sử 7 ngày, log ghi vào `/var/log/dataops-backup.log`
 - **61 unit tests PASSED** (6 file test, 0 warnings) — bao phủ toàn bộ ETL modules và DAG task functions; flake8 clean
-- **7 bug đã phát hiện và fix** trong quá trình kiểm thử (pandas StringIO, PromQL gauge, no-op DAG expression, missing promtail config, v.v.)
-- **CI/CD** với GitHub Actions: lint + test tự động khi push code
-- **Infrastructure as Code** với Ansible playbooks cho cả 3 VM
+- **10 bug đã phát hiện và fix** trong quá trình kiểm thử (pandas StringIO, PromQL gauge, no-op DAG expression, missing promtail config, alerts.yml not mounted, VM3 node-exporter missing host mounts, v.v.)
+- **CI/CD** với GitHub Actions: lint + test tự động; CD deploy qua self-hosted runner trên VM1
+- **Infrastructure as Code** với Ansible (ansible.cfg, site.yml, 3 playbooks) — đã test thực tế ping + deploy VM3
+- **Simulate failure tests**: PostgreSQL down → `PostgreSQLDown` FIRING ✅; Disk full → `DiskSpaceLow` FIRING ✅

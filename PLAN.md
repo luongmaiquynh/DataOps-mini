@@ -106,7 +106,9 @@ dataops/
 │   ├── lint-test.yml
 │   └── deploy.yml
 ├── infra/ansible/
+│   ├── ansible.cfg
 │   ├── inventory.ini
+│   ├── site.yml
 │   ├── playbook-vm1.yml
 │   ├── playbook-vm2.yml
 │   └── playbook-vm3.yml
@@ -1318,7 +1320,8 @@ ssh dataops@192.168.64.3 "docker exec postgres_db psql -U dataops -d dataops_db 
 | `HighCpuUsage` | CPU > 80% liên tục 5 phút | warning |
 | `LowMemory` | RAM còn < 10% | warning |
 | `DiskSpaceLow` | Disk còn < 15% | warning |
-| `ContainerRestartingTooMuch` | Container restart > 3 lần / 10 phút | critical |
+| `ContainerRestartingTooMuch` | Container restart > 3 lần / 15 phút | critical |
+| `PostgreSQLDown` | `pg_up == 0` (PostgreSQL không kết nối được) > 1 phút | critical |
 
 **Test alert thủ công:**
 ```bash
@@ -1457,6 +1460,9 @@ Các lỗi được tìm ra trong quá trình review và test toàn bộ source 
 | 5 | `pipeline/etl/load.py` | `df.to_sql()` không có try-except → lỗi DB không được log | MEDIUM | Bọc trong try-except với `logger.error` |
 | 6 | `pipeline/dags/ingest_api_dag.py` + `ingest_csv_dag.py` | `pd.read_json(string)` bị lỗi trong pandas mới, cần `StringIO` wrapper | MEDIUM | Đổi thành `pd.read_json(io.StringIO(json_str))` ở tất cả chỗ |
 | 7 | `pipeline/dags/ingest_csv_dag.py` | `df.to_json()` dùng epoch date format cũ | LOW | Thêm `date_format='iso'` |
+| 8 | `docker/dataops-vm1/docker-compose-monitoring.yml` | `alerts.yml` không được mount vào prometheus container → alert rules không load | HIGH | Thêm volume mount `alerts.yml:/etc/prometheus/alerts.yml:ro`, recreate container |
+| 9 | `docker/dataops-vm3/docker-compose.yml` | node-exporter thiếu host filesystem mount → Prometheus không thấy disk thật VM3 | MEDIUM | Thêm volumes `/proc`, `/sys`, `/` và `--path.*` flags vào command |
+| 10 | `monitoring/prometheus/alerts.yml` | Thiếu rule cho PostgreSQL down (pg_up==0) — chỉ có InstanceDown không đủ | MEDIUM | Thêm rule `PostgreSQLDown: pg_up == 0, for: 1m, severity: critical` |
 
 ---
 
@@ -1468,7 +1474,9 @@ dataops/
 │   ├── lint-test.yml
 │   └── deploy.yml
 ├── infra/ansible/
+│   ├── ansible.cfg
 │   ├── inventory.ini
+│   ├── site.yml
 │   ├── playbook-vm1.yml
 │   ├── playbook-vm2.yml
 │   └── playbook-vm3.yml
