@@ -41,6 +41,14 @@
         group: dataops
         mode: '0755'
 
+    - name: Create backup log file
+      file:
+        path: /var/log/dataops-backup.log
+        state: touch
+        owner: dataops
+        group: dataops
+        mode: '0644'
+
     - name: Setup backup cron job
       cron:
         name: "Daily PostgreSQL backup"

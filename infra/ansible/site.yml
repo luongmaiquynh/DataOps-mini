@@ -1,0 +1,6 @@
+---
+# site.yml – Run all playbooks in order
+# Usage: ansible-playbook site.yml
+- import_playbook: playbook-vm2.yml   # DB phải lên trước
+- import_playbook: playbook-vm1.yml   # Airflow + Monitoring
+- import_playbook: playbook-vm3.yml   # Node Exporter + Backup
