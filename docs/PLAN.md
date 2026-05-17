@@ -1521,3 +1521,139 @@ dataops/
 └── PLAN.md
 ```
 
+---
+
+### 8.14 Test kịch bản Alert System
+
+> Kiểm tra xem hệ thống cảnh báo có hoạt động đúng không. Sau mỗi kịch bản phải **khôi phục** trước khi test kịch bản tiếp theo.
+
+---
+
+#### Kịch bản 1: PostgreSQLDown — PostgreSQL bị tắt
+
+**Mục tiêu:** Alert `PostgreSQLDown` FIRING khi postgres_db không kết nối được.
+
+**Bước thực hiện:**
+```bash
+# Trên VM2 — tắt PostgreSQL
+ssh dataops@192.168.64.3
+docker stop postgres_db
+```
+
+**Kiểm tra:** Vào http://192.168.64.2:9090/alerts → chờ ~1 phút → `PostgreSQLDown` chuyển sang **FIRING**.
+
+**Khôi phục:**
+```bash
+# Trên VM2
+docker start postgres_db
+```
+
+Chờ ~1-2 phút → `PostgreSQLDown` trở về **INACTIVE**.
+
+---
+
+#### Kịch bản 2: DiskSpaceLow — Disk gần đầy
+
+**Mục tiêu:** Alert `DiskSpaceLow` FIRING khi disk trống < 15%.
+
+> **Lưu ý:** Ngưỡng mặc định là 15%. Nếu disk VM3 còn nhiều dung lượng, cần tạm thời hạ ngưỡng xuống để test (xem bên dưới).
+
+**Cách 1 — Tạo file rác để chiếm đĩa (nếu disk sắp đầy):**
+```bash
+# Trên VM3
+ssh dataops@192.168.64.4
+fallocate -l 10G /home/dataops/diskfull_test.img
+```
+
+**Cách 2 — Hạ ngưỡng alert tạm thời (nếu disk còn nhiều):**
+```bash
+# Trên máy Mac — kiểm tra disk VM3 trước
+ssh dataops@192.168.64.4 "df -h /"
+
+# Sửa ngưỡng trong alerts.yml (đổi < 15 thành < 80 để trigger với disk 25% used)
+# Sau đó scp lên VM1 và reload:
+scp monitoring/prometheus/alerts.yml dataops@192.168.64.2:~/dataops/monitoring/prometheus/alerts.yml
+ssh dataops@192.168.64.2 "curl -X POST http://localhost:9090/-/reload"
+```
+
+**Kiểm tra:** Vào http://192.168.64.2:9090/alerts → chờ ~5 phút (rule có `for: 5m`) → `DiskSpaceLow` chuyển sang **FIRING**.
+
+**Khôi phục:**
+```bash
+# Trên VM3 — xóa file rác
+rm /home/dataops/diskfull_test.img
+
+# Trên máy Mac — khôi phục ngưỡng về 15%
+# Sửa lại alerts.yml (đổi < 80 về < 15), rồi:
+scp monitoring/prometheus/alerts.yml dataops@192.168.64.2:~/dataops/monitoring/prometheus/alerts.yml
+ssh dataops@192.168.64.2 "curl -X POST http://localhost:9090/-/reload"
+```
+
+---
+
+#### Kịch bản 3: InstanceDown — Node Exporter bị tắt
+
+**Mục tiêu:** Alert `InstanceDown` FIRING khi một instance không phản hồi > 1 phút.
+
+**Bước thực hiện:**
+```bash
+# Trên VM3 — tắt node-exporter
+ssh dataops@192.168.64.4
+cd ~/dataops/docker/dataops-vm3
+docker compose down
+```
+
+**Kiểm tra:** Vào http://192.168.64.2:9090/alerts → chờ ~1 phút → `InstanceDown` chuyển sang **FIRING**.
+
+**Khôi phục:**
+```bash
+# Trên VM3
+cd ~/dataops/docker/dataops-vm3
+docker compose up -d
+```
+
+---
+
+#### Kịch bản 4: ContainerRestartingTooMuch — Container crash-loop
+
+**Mục tiêu:** Alert `ContainerRestartingTooMuch` FIRING khi container restart >= 3 lần trong 15 phút.
+
+**Bước thực hiện:**
+```bash
+# Trên VM1 — tạo container crash-loop (chạy 30s rồi crash, Docker tự restart)
+ssh dataops@192.168.64.2
+docker run -d --restart=always --name crash_test alpine sh -c "sleep 30 && exit 1"
+```
+
+**Theo dõi:** Chạy lệnh sau để xem trạng thái restart:
+```bash
+watch -n 5 'docker ps -a | grep crash_test'
+```
+
+**Kiểm tra:** Chờ ~3-4 phút (3 cycle crash × 30s) → Vào http://192.168.64.2:9090/alerts → `ContainerRestartingTooMuch` chuyển sang **FIRING**.
+
+> **Xác nhận bằng query:** Vào http://192.168.64.2:9090 → Query tab → chạy:
+> ```
+> count by (name) (count_over_time(container_last_seen{name!=""}[15m]))
+> ```
+> `crash_test` phải có giá trị >= 3.
+
+**Khôi phục:**
+```bash
+# Trên VM1
+docker rm -f crash_test
+```
+
+Chờ ~15 phút → `ContainerRestartingTooMuch` tự về **INACTIVE**.
+
+---
+
+#### Tóm tắt kết quả test
+
+| # | Kịch bản | Alert | Thời gian chờ | Kết quả |
+|---|---|---|---|---|
+| 1 | Tắt PostgreSQL | PostgreSQLDown | ~1 phút | FIRING ✅ |
+| 2 | Disk gần đầy | DiskSpaceLow | ~5 phút | FIRING ✅ |
+| 3 | Tắt node-exporter | InstanceDown | ~1 phút | FIRING ✅ |
+| 4 | Container crash-loop | ContainerRestartingTooMuch | ~3-4 phút | FIRING ✅ |
+

@@ -1,5 +1,5 @@
 # BÁO CÁO TIẾN ĐỘ DỰ ÁN: Mini DataOps Platform
-**Ngày báo cáo:** 16/05/2026  
+**Ngày báo cáo:** 17/05/2026  
 **Người thực hiện:** Lương Mai Quỳnh  
 **Mentor:** *(tên mentor)*  
 **Trạng thái:** ✅ HOÀN THÀNH 100%
@@ -532,6 +532,10 @@ Deploy lên VM1 khi push `main` — dùng **self-hosted runner** cài trên VM1:
 | `alerts.yml` không được mount vào prometheus container | docker-compose-monitoring.yml thiếu volume mount cho `alerts.yml` | Thêm `alerts.yml:/etc/prometheus/alerts.yml:ro` vào volumes của prometheus, recreate container |
 | VM3 node-exporter không báo disk thật của host | docker-compose.yml VM3 thiếu volume mount `/proc`, `/sys`, `/` → exporter chỉ thấy filesystem container | Thêm host filesystem mounts + `--path.procfs`, `--path.sysfs`, `--path.rootfs` vào command |
 | `DiskSpaceLow` không có rule cho PostgreSQL down | Chỉ có `InstanceDown` (up==0) nhưng postgres-exporter vẫn chạy khi DB tắt | Thêm rule `PostgreSQLDown` với `expr: pg_up == 0` vào `alerts.yml` |
+| `ContainerRestartingTooMuch` không trigger được | `changes(container_start_time_seconds)` không hoạt động vì cAdvisor tạo time series mới với label `restartcount` khác nhau mỗi lần restart → `changes()` luôn trả về 0 | Đổi expression sang `count by (name) (count_over_time(container_last_seen{name!=""}[15m])) >= 3` — đếm số series riêng biệt (= số lần restart) trong 15 phút |
+| `data_quality_check` fail với `duplicates=15` trong bảng `employees` | `ingest_csv` chạy nhiều lần với `if_exists='append'` → tích lũy dữ liệu trùng lặp trong PostgreSQL | `TRUNCATE TABLE employees` trên VM2, trigger lại `ingest_csv` 1 lần → `duplicates=0, passed=True` |
+| DAG `01_hello_world_test` vẫn hiển thị sau khi xóa file | File DAG nằm ở `pipeline/dags/` (volume mount thực tế) nhưng lệnh xóa trỏ sai vào thư mục `dags/` ở root | Xóa đúng file tại `~/dataops/pipeline/dags/hello_world_dag.py` + chạy `airflow dags delete 01_hello_world_test -y` |
+| CD pipeline fail do conflict `alerts.yml` trên VM1 | VM1 có local changes chưa commit trong `alerts.yml` khi CD chạy `git pull` | Chạy `git stash && git pull origin main` thủ công trên VM1 |
 
 ---
 
@@ -548,8 +552,11 @@ Deploy lên VM1 khi push `main` — dùng **self-hosted runner** cài trên VM1:
 | Ansible IaC: ansible.cfg, site.yml, 3 playbooks — đã test ping + playbook-vm3 | ✅ Hoàn thành |
 | GitHub Actions CI – Lint & Test: PASSING | ✅ Hoàn thành |
 | GitHub Actions CD – Self-hosted runner trên VM1: PASSING | ✅ Hoàn thành |
-| Simulate service failure: PostgreSQL down → `PostgreSQLDown` FIRING trong Prometheus | ✅ Hoàn thành |
-| Simulate disk full: VM3 86% used → `DiskSpaceLow` FIRING trong Prometheus | ✅ Hoàn thành |
+| Simulate PostgreSQL down → `PostgreSQLDown` FIRING trong Prometheus | ✅ Hoàn thành |
+| Simulate disk full → `DiskSpaceLow` FIRING trong Prometheus | ✅ Hoàn thành |
+| Simulate instance down (tắt node-exporter VM3) → `InstanceDown` FIRING | ✅ Hoàn thành |
+| Simulate container crash-loop → `ContainerRestartingTooMuch` FIRING | ✅ Hoàn thành |
+| End-to-end test 3 DAGs: ingest_csv ✅, ingest_weather_api ✅, data_quality_check ✅ | ✅ Hoàn thành |
 | README đầy đủ với kiến trúc và hướng dẫn | ✅ Hoàn thành |
 
 ---
@@ -605,7 +612,7 @@ dataops/
 ├── monitoring/
 │   ├── prometheus/
 │   │   ├── prometheus.yml     ✅ Scrape 5 targets (tất cả UP)
-│   │   └── alerts.yml         ✅ 5 alert rules (PromQL đã fix)
+│   │   └── alerts.yml         ✅ 6 alert rules (PromQL đã fix)
 │   ├── loki/loki-config.yml   ✅ Log aggregation
 │   ├── promtail/
 │   │   └── promtail-config.yml  ✅ Thu thập log container Docker
@@ -628,7 +635,8 @@ Dự án **Mini DataOps Platform** đã hoàn thành 100% tất cả 8 giai đo�
 - **Monitoring stack** 8 container: Prometheus, Grafana, Loki, Promtail, Alertmanager, cAdvisor, Node Exporter, postgres-exporter — 5/5 targets UP; **6 alert rules** (thêm PostgreSQLDown)
 - **Backup tự động** hàng ngày lúc 2:00 AM với giữ lịch sử 7 ngày, log ghi vào `/var/log/dataops-backup.log`
 - **61 unit tests PASSED** (6 file test, 0 warnings) — bao phủ toàn bộ ETL modules và DAG task functions; flake8 clean
-- **10 bug đã phát hiện và fix** trong quá trình kiểm thử (pandas StringIO, PromQL gauge, no-op DAG expression, missing promtail config, alerts.yml not mounted, VM3 node-exporter missing host mounts, v.v.)
+- **15 bug đã phát hiện và fix** trong quá trình kiểm thử (pandas StringIO, PromQL gauge, no-op DAG expression, missing promtail config, alerts.yml not mounted, VM3 node-exporter missing host mounts, ContainerRestartingTooMuch expression, employees duplicates, hello_world_test DAG, CD git conflict, v.v.)
 - **CI/CD** với GitHub Actions: lint + test tự động; CD deploy qua self-hosted runner trên VM1
 - **Infrastructure as Code** với Ansible (ansible.cfg, site.yml, 3 playbooks) — đã test thực tế ping + deploy VM3
-- **Simulate failure tests**: PostgreSQL down → `PostgreSQLDown` FIRING ✅; Disk full → `DiskSpaceLow` FIRING ✅
+- **Simulate failure tests — 4/4 kịch bản FIRING**: PostgreSQL down ✅, Disk full ✅, Instance down ✅, Container crash-loop ✅
+- **End-to-end test 3 DAGs**: ingest_csv ✅, ingest_weather_api ✅, data_quality_check ✅

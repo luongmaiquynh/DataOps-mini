@@ -80,6 +80,9 @@ dataops/
 ├── .github/workflows/
 │   ├── lint-test.yml       # CI: flake8 + pytest
 │   └── deploy.yml          # CD: deploy lên VM1
+├── docs/
+│   ├── PLAN.md             # Kế hoạch thực hiện
+│   └── REPORT.md           # Báo cáo kết quả
 └── sample_data/
     └── sample.csv
 ```
@@ -132,6 +135,11 @@ ansible all -m ping
 ### Deploy thủ công
 
 ```bash
+# VM2 - Database (bật trước)
+ssh dataops@192.168.64.3
+cd ~/dataops/docker/dataops-vm2
+docker compose up -d
+
 # VM1 - Airflow
 ssh dataops@192.168.64.2
 cd ~/dataops/docker/dataops-vm1
@@ -140,9 +148,9 @@ docker compose up -d
 # VM1 - Monitoring
 docker compose -f docker-compose-monitoring.yml up -d
 
-# VM2
-ssh dataops@192.168.64.3
-cd ~/dataops/docker/dataops-vm2
+# VM3 - Node Exporter + Backup
+ssh dataops@192.168.64.4
+cd ~/dataops/docker/dataops-vm3
 docker compose up -d
 ```
 
@@ -152,16 +160,16 @@ docker compose up -d
 
 | DAG | Mô tả | Schedule |
 |---|---|---|
-| `ingest_csv_dag` | Đọc CSV → transform → load PostgreSQL + MinIO | @daily |
-| `ingest_api_dag` | Gọi API → transform → load | @hourly |
-| `data_quality_dag` | Kiểm tra chất lượng dữ liệu | @daily |
+| `ingest_csv` | Đọc CSV → transform → load PostgreSQL + MinIO | @daily |
+| `ingest_weather_api` | Gọi API thời tiết Hà Nội → transform → load | @hourly |
+| `data_quality_check` | Kiểm tra chất lượng dữ liệu | @daily |
 
 ### Chạy DAG thủ công
 
 ```bash
 # Trigger DAG từ Airflow UI: http://192.168.64.2:8080
 # hoặc CLI:
-docker exec -it airflow-webserver airflow dags trigger ingest_csv_dag
+docker exec -it airflow_webserver airflow dags trigger ingest_csv
 ```
 
 ## Unit Tests
