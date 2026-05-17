@@ -57,7 +57,7 @@ groups:
     rules:
       # Cảnh báo container restart nhiều lần
       - alert: ContainerRestartingTooMuch
-        expr: changes(container_start_time_seconds{name!=""}[15m]) >= 3
+        expr: count by (name) (count_over_time(container_last_seen{name!=""}[15m])) >= 3
         for: 0m
         labels:
           severity: warning
