@@ -793,14 +793,26 @@ def task_quality(**context):
 
 
 def task_load(**context):
-    import io, pandas as pd
+    import io
+    import pandas as pd
     from datetime import date
-    from etl.load import load_to_postgres, load_to_minio
+    from sqlalchemy import text
+    from etl.load import load_to_postgres, load_to_minio, get_postgres_engine
     clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
     df = pd.read_json(io.StringIO(clean_json))
+
+    # Xóa các dòng có time trùng trước khi insert (tránh duplicate)
+    engine = get_postgres_engine(POSTGRES_CONN)
+    time_values = df['time'].astype(str).tolist()
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM weather_hanoi WHERE time = ANY(:times)"),
+            {"times": time_values}
+        )
+
     load_to_postgres(df, table='weather_hanoi', conn_str=POSTGRES_CONN)
-    load_to_minio(df, MINIO_BUCKET, f'raw/weather/{date.today()}.csv',
-                  MINIO_ENDPOINT, MINIO_ACCESS, MINIO_SECRET)
+    object_name = f'raw/weather/{date.today()}.csv'
+    load_to_minio(df, MINIO_BUCKET, object_name, MINIO_ENDPOINT, MINIO_ACCESS, MINIO_SECRET)
 
 
 with DAG(
@@ -1463,6 +1475,7 @@ Các lỗi được tìm ra trong quá trình review và test toàn bộ source 
 | 8 | `docker/dataops-vm1/docker-compose-monitoring.yml` | `alerts.yml` không được mount vào prometheus container → alert rules không load | HIGH | Thêm volume mount `alerts.yml:/etc/prometheus/alerts.yml:ro`, recreate container |
 | 9 | `docker/dataops-vm3/docker-compose.yml` | node-exporter thiếu host filesystem mount → Prometheus không thấy disk thật VM3 | MEDIUM | Thêm volumes `/proc`, `/sys`, `/` và `--path.*` flags vào command |
 | 10 | `monitoring/prometheus/alerts.yml` | Thiếu rule cho PostgreSQL down (pg_up==0) — chỉ có InstanceDown không đủ | MEDIUM | Thêm rule `PostgreSQLDown: pg_up == 0, for: 1m, severity: critical` |
+| 11 | `pipeline/dags/ingest_api_dag.py` | `task_load` dùng `if_exists='append'` + API trả về `forecast_days=1` → mỗi lần DAG `@hourly` chạy đều append 24 dòng trùng `time` vào `weather_hanoi` — sau 9 lần chạy có 288 dòng thay vì 48 | HIGH | Sửa `task_load` theo pattern delete-insert: trước khi `load_to_postgres`, chạy `DELETE FROM weather_hanoi WHERE time = ANY(:times)` để xóa dòng trùng time, sau đó mới INSERT. Dọn dữ liệu cũ: `DELETE WHERE ctid NOT IN (SELECT MAX(ctid) GROUP BY time)` → xóa 240 dòng duplicate |
 
 ---
 

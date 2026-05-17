@@ -66,9 +66,20 @@ def task_load(**context):
     import io
     import pandas as pd
     from datetime import date
-    from etl.load import load_to_postgres, load_to_minio
+    from sqlalchemy import text
+    from etl.load import load_to_postgres, load_to_minio, get_postgres_engine
     clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
     df = pd.read_json(io.StringIO(clean_json))
+
+    # Xóa các dòng có time trùng trước khi insert (tránh duplicate)
+    engine = get_postgres_engine(POSTGRES_CONN)
+    time_values = df['time'].astype(str).tolist()
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM weather_hanoi WHERE time = ANY(:times)"),
+            {"times": time_values}
+        )
+
     load_to_postgres(df, table='weather_hanoi', conn_str=POSTGRES_CONN)
     object_name = f'raw/weather/{date.today()}.csv'
     load_to_minio(df, MINIO_BUCKET, object_name, MINIO_ENDPOINT, MINIO_ACCESS, MINIO_SECRET)
