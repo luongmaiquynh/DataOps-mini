@@ -53,12 +53,21 @@ def task_load(**context):
     import io
     import pandas as pd
     from datetime import date
-    from etl.load import load_to_postgres, load_to_minio
+    from sqlalchemy import text
+    from etl.load import load_to_postgres, load_to_minio, get_postgres_engine
     clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
     df = pd.read_json(io.StringIO(clean_json))
-    # Load vào PostgreSQL
+
+    # Xóa các dòng có id trùng trước khi insert (tránh duplicate)
+    engine = get_postgres_engine(POSTGRES_CONN)
+    id_values = df['id'].tolist()
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM employees WHERE id = ANY(:ids)"),
+            {"ids": id_values}
+        )
+
     load_to_postgres(df, table='employees', conn_str=POSTGRES_CONN)
-    # Upload lên MinIO
     object_name = f'raw/employees/{date.today()}.csv'
     load_to_minio(df, MINIO_BUCKET, object_name, MINIO_ENDPOINT, MINIO_ACCESS, MINIO_SECRET)
 
