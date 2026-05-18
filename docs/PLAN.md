@@ -1476,6 +1476,7 @@ Các lỗi được tìm ra trong quá trình review và test toàn bộ source 
 | 9 | `docker/dataops-vm3/docker-compose.yml` | node-exporter thiếu host filesystem mount → Prometheus không thấy disk thật VM3 | MEDIUM | Thêm volumes `/proc`, `/sys`, `/` và `--path.*` flags vào command |
 | 10 | `monitoring/prometheus/alerts.yml` | Thiếu rule cho PostgreSQL down (pg_up==0) — chỉ có InstanceDown không đủ | MEDIUM | Thêm rule `PostgreSQLDown: pg_up == 0, for: 1m, severity: critical` |
 | 11 | `pipeline/dags/ingest_api_dag.py` | `task_load` dùng `if_exists='append'` + API trả về `forecast_days=1` → mỗi lần DAG `@hourly` chạy đều append 24 dòng trùng `time` vào `weather_hanoi` — sau 9 lần chạy có 288 dòng thay vì 48 | HIGH | Sửa `task_load` theo pattern delete-insert: trước khi `load_to_postgres`, chạy `DELETE FROM weather_hanoi WHERE time = ANY(:times)` để xóa dòng trùng time, sau đó mới INSERT. Dọn dữ liệu cũ: `DELETE WHERE ctid NOT IN (SELECT MAX(ctid) GROUP BY time)` → xóa 240 dòng duplicate |
+| 12 | `monitoring/promtail/promtail-config.yml` | `url: ${LOKI_URL}` dùng biến môi trường nhưng thiếu flag `-config.expand-env=true` trong command promtail → Promtail kết nối đến URL `${LOKI_URL}` theo nghĩa đen → không push được log nào → Grafana Explore Loki hiện "No labels found" | HIGH | Hardcode trực tiếp: đổi `url: ${LOKI_URL}` thành `url: http://loki:3100/loki/api/v1/push` trong `monitoring/promtail/promtail-config.yml` → restart container promtail |
 
 ---
 
