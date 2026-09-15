@@ -9,6 +9,7 @@ groups:
           severity: critical
         annotations:
           summary: "Instance {{ $labels.instance }} down"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/InstanceDown.md"
           description: "{{ $labels.instance }} đã down hơn 1 phút."
 
       # Cảnh báo CPU cao
@@ -19,6 +20,7 @@ groups:
           severity: warning
         annotations:
           summary: "CPU cao trên {{ $labels.instance }}"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/HighCpuUsage.md"
           description: "CPU usage > 80% trong 5 phút liên tục."
 
       # Cảnh báo RAM thấp
@@ -29,6 +31,7 @@ groups:
           severity: critical
         annotations:
           summary: "RAM thấp trên {{ $labels.instance }}"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/LowMemory.md"
           description: "RAM khả dụng < 10%."
 
       # Cảnh báo disk gần đầy
@@ -39,6 +42,7 @@ groups:
           severity: warning
         annotations:
           summary: "Disk sắp đầy trên {{ $labels.instance }}"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/DiskSpaceLow.md"
           description: "Disk còn < 15% dung lượng trống."
 
   - name: database
@@ -51,6 +55,7 @@ groups:
           severity: critical
         annotations:
           summary: "PostgreSQL down trên {{ $labels.instance }}"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/PostgreSQLDown.md"
           description: "PostgreSQL không kết nối được hơn 1 phút."
 
   - name: containers
@@ -64,6 +69,7 @@ groups:
           severity: warning
         annotations:
           summary: "Container {{ $labels.name }} restart liên tục"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/ContainerRestartingTooMuch.md"
           description: "Container restart >= 3 lần trong 15 phút."
 
   - name: backup
@@ -77,6 +83,7 @@ groups:
           severity: critical
         annotations:
           summary: "Backup PostgreSQL đã quá hạn"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupStale.md"
           description: "Bản backup thành công gần nhất cách đây {{ $value | humanizeDuration }}."
 
       # Không có metric nào = cron không chạy, hoặc node-exporter mất textfile.
@@ -87,6 +94,7 @@ groups:
           severity: warning
         annotations:
           summary: "Không thấy metric backup"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupMetricMissing.md"
           description: "Cron backup có thể không chạy, hoặc node-exporter mất thư mục textfile."
 
       # Backup tồn tại nhưng restore thử không thành công — nguy hiểm hơn cả
@@ -98,6 +106,7 @@ groups:
           severity: critical
         annotations:
           summary: "Bản backup không restore được"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupRestoreTestFailed.md"
           description: "Lần kiểm chứng restore gần nhất thất bại. Backup hiện không dùng được."
 
       # Kiểm chứng chạy hàng tuần; quá 8 ngày là job đã ngừng.
@@ -108,4 +117,20 @@ groups:
           severity: warning
         annotations:
           summary: "Lâu rồi chưa kiểm chứng backup"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupRestoreTestStale.md"
           description: "Lần kiểm chứng restore gần nhất cách đây {{ $value | humanizeDuration }}."
+
+  - name: watchdog
+    rules:
+      # Alert này LUÔN firing, không phải lỗi. Nó là nhịp tim gửi đều đặn ra
+      # dịch vụ bên ngoài. Khi nhịp tim ngừng, dịch vụ đó sẽ báo động — đó là
+      # cách duy nhất biết được chính Prometheus hoặc Alertmanager đã chết.
+      # 15/09/2026: Alertmanager từng câm 15 phút vì mạng ra ngoài chập chờn,
+      # và không có gì báo cho ai biết.
+      - alert: Watchdog
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: "Nhịp tim của hệ thống giám sát"
+          description: "Luôn firing. Nếu nhịp này ngừng tới đích, hệ thống giám sát đã hỏng."

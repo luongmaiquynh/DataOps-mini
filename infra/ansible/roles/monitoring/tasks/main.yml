@@ -1,4 +1,27 @@
 ---
+# alertmanager.yml được render từ template vì URL của dead man's switch là cấu
+# hình riêng của từng môi trường. File này bị loại khỏi rsync trong role
+# app_code để hai cơ chế không ghi đè lẫn nhau.
+- name: Render Alertmanager configuration
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: "{{ app_dir }}/monitoring/alertmanager/alertmanager.yml"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+  register: am_config
+
+- name: Restart Alertmanager when its configuration changes
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_compose_dir }}"
+    files:
+      - "{{ monitoring_compose_file }}"
+    services:
+      - alertmanager
+    state: restarted
+  become: false
+  when: am_config.changed
+
 - name: Deploy monitoring stack
   community.docker.docker_compose_v2:
     project_src: "{{ monitoring_compose_dir }}"

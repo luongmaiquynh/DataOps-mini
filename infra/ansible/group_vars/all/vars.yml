@@ -13,3 +13,6 @@ env_minio_port: '9000'
 env_minio_console_port: '9001'
 env_minio_bucket: 'dataops-lake'
 env_grafana_admin_user: 'admin'
+
+# URL nhip tim cho dead man's switch (healthchecks.io) — giá trị nằm trong vault
+dead_mans_switch_url: "{{ vault_dead_mans_switch_url }}"

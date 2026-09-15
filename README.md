@@ -313,6 +313,30 @@ sudo sh -c 'cat >> /etc/hosts' <<'EOF'
 EOF
 ```
 
+## Cảnh báo và runbook
+
+11 alert rule trong [monitoring/prometheus/alerts.yml](monitoring/prometheus/alerts.yml),
+mỗi rule có annotation `runbook_url` trỏ tới hướng dẫn xử lý tương ứng trong
+[docs/runbooks/](docs/runbooks/) — người trực bấm thẳng từ Alertmanager là tới.
+
+| Nhóm | Alert |
+|---|---|
+| Hạ tầng | `InstanceDown`, `HighCpuUsage`, `LowMemory`, `DiskSpaceLow` |
+| Database | `PostgreSQLDown` |
+| Container | `ContainerRestartingTooMuch` |
+| Backup | `BackupStale`, `BackupMetricMissing`, `BackupRestoreTestFailed`, `BackupRestoreTestStale` |
+| Nhịp tim | `Watchdog` |
+
+### Dead man's switch
+
+`Watchdog` là alert **luôn firing**. Alertmanager gửi nó tới healthchecks.io mỗi 5
+phút như một nhịp tim. Khi nhịp ngừng — Prometheus chết, Alertmanager chết, hoặc
+VM1 mất mạng — healthchecks.io gửi email báo động sau 10 phút chờ.
+
+Đây là câu trả lời cho câu hỏi *"làm sao biết hệ thống giám sát vẫn còn sống?"*.
+Ngày 15/09/2026 Alertmanager từng không gửi được cảnh báo suốt 15 phút vì mạng ra
+ngoài chập chờn, và không có cách nào biết điều đó.
+
 ## Backup
 
 Script backup PostgreSQL chạy tự động lúc 2:00 AM hàng ngày trên VM3:

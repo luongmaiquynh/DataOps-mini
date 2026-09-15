@@ -15,3 +15,5 @@ app_code_excludes:
   # File bằng chứng được ghi trong lúc playbook chạy nên luôn khác nhau;
   # đồng bộ chúng sẽ làm task này không bao giờ idempotent.
   - "--exclude=docs/idempotency-*.txt"
+  # File này do role monitoring render, không đồng bộ từ repo
+  - "--exclude=monitoring/alertmanager/alertmanager.yml"

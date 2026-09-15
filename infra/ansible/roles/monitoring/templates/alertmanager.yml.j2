@@ -1,0 +1,68 @@
+# {{ ansible_managed }}
+# Nguồn: infra/ansible/roles/monitoring/templates/alertmanager.yml.j2
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'job']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'ntfy'
+  routes:
+{% if dead_mans_switch_url %}
+    # Nhịp tim: gửi lại mỗi 5 phút, không gom nhóm, không lẫn với alert thật.
+    - match:
+        alertname: Watchdog
+      receiver: 'deadmansswitch'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 5m
+{% else %}
+    # Chưa cấu hình dead man's switch: nuốt nhịp tim để nó không gửi vào ntfy.
+    - match:
+        alertname: Watchdog
+      receiver: 'blackhole'
+{% endif %}
+
+    - match:
+        severity: critical
+      receiver: 'ntfy'
+      continue: true
+
+receivers:
+{% if dead_mans_switch_url %}
+  # Dịch vụ bên ngoài nhận nhịp tim. Nó báo động khi NGỪNG nhận được tín hiệu —
+  # ngược với alert thường. Đặt URL vào dead_mans_switch_url trong group_vars.
+  - name: 'deadmansswitch'
+    webhook_configs:
+      - url: '{{ dead_mans_switch_url }}'
+        send_resolved: false
+{% else %}
+  # Receiver rỗng: nhịp tim bị nuốt cho tới khi cấu hình dịch vụ bên ngoài.
+  - name: 'blackhole'
+{% endif %}
+
+  - name: 'ntfy'
+    webhook_configs:
+      - url: 'https://ntfy.sh/dataops-mini-alerts'
+        send_resolved: true
+
+# --- Cấu hình Gmail (tùy chọn thêm) ---
+# Thêm receiver bên dưới và thêm vào route nếu muốn nhận cả email:
+#
+#   - name: 'email'
+#     email_configs:
+#       - to: 'your-email@gmail.com'
+#         from: 'alertmanager@dataops.local'
+#         smarthost: 'smtp.gmail.com:587'
+#         auth_username: 'your-email@gmail.com'
+#         auth_password: 'xxxx-xxxx-xxxx-xxxx'  # Gmail App Password
+#         require_tls: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'job']
