@@ -9,6 +9,12 @@
   become: false
   register: airflow_init
   changed_when: "'Running upgrade' in airflow_init.stdout"
+  # Container cài thư viện Python từ Internet mỗi lần khởi động, nên bước này
+  # phụ thuộc mạng và đã fail thật vì pip tải dở dang. GĐ 5.3 sẽ bỏ hẳn phụ
+  # thuộc này bằng cách build image riêng.
+  retries: 3
+  delay: 30
+  until: airflow_init.rc == 0
 
 - name: Deploy Airflow stack
   community.docker.docker_compose_v2:

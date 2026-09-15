@@ -345,6 +345,10 @@ mỗi rule có annotation `runbook_url` trỏ tới hướng dẫn xử lý tư�
 phút như một nhịp tim. Khi nhịp ngừng — Prometheus chết, Alertmanager chết, hoặc
 VM1 mất mạng — healthchecks.io gửi email báo động sau 10 phút chờ.
 
+**Đã diễn tập 15/09/2026:** tắt Alertmanager 17 phút, healthchecks.io gửi email
+`DOWN | dataops-alertmanager` sau 14,5 phút, rồi tự chuyển lại xanh khi nhịp tim
+đập trở lại.
+
 Đây là câu trả lời cho câu hỏi *"làm sao biết hệ thống giám sát vẫn còn sống?"*.
 Ngày 15/09/2026 Alertmanager từng không gửi được cảnh báo suốt 15 phút vì mạng ra
 ngoài chập chờn, và không có cách nào biết điều đó.

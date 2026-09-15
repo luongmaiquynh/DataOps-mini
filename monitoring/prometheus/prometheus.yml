@@ -25,6 +25,14 @@ scrape_configs:
           vm: 'vm1'
           role: 'airflow'
 
+  # Node Exporter VM2 (máy chạy database)
+  - job_name: 'node-exporter-vm2'
+    static_configs:
+      - targets: ['192.168.64.3:9100']
+        labels:
+          vm: 'vm2'
+          role: 'database'
+
   # Node Exporter VM3
   - job_name: 'node-exporter-vm3'
     static_configs:
