@@ -136,10 +136,10 @@ ansible-vault edit group_vars/all/vault.yml
 ansible all -m ping
 
 # Deploy toàn bộ hệ thống (vm2 → vm1 → vm3)
-ansible-playbook site.yml --ask-become-pass --ask-vault-pass
+ansible-playbook site.yml --ask-become-pass
 
 # Hoặc deploy riêng từng VM
-ansible-playbook site.yml --limit vm2 --ask-become-pass --ask-vault-pass
+ansible-playbook site.yml --limit vm2 --ask-become-pass
 
 # Chỉ cài Docker
 ansible-playbook install_docker.yml --ask-become-pass
@@ -187,7 +187,7 @@ VM3 đã được kiểm chứng bằng cách xoá sạch container, image và t
 dựng lại hoàn toàn bằng một lệnh:
 
 ```bash
-time ansible-playbook site.yml --limit vm3 --ask-become-pass --ask-vault-pass
+time ansible-playbook site.yml --limit vm3 --ask-become-pass
 ```
 
 | Chỉ số | Kết quả (15/09/2026) |
@@ -251,7 +251,9 @@ pytest tests/ -v
 |---|---|
 | SSH | Chỉ nhận khoá (`PasswordAuthentication no`), cấm đăng nhập root, fail2ban chặn 1 giờ sau 5 lần sai |
 | Tường lửa | UFW khai báo trong `infra/ansible/host_vars/`, mặc định chặn mọi kết nối vào |
-| Secret | Ansible Vault; `.env` sinh từ template, mỗi máy chỉ nhận phần nó cần |
+| Secret | Ansible Vault (mật khẩu vault đọc từ `~/.ansible/vault_pass_dataops`, ngoài repo); `.env` sinh từ template, mỗi máy chỉ nhận phần nó cần |
+| Redis | Bắt buộc xác thực bằng `requirepass`; kết nối không mật khẩu bị từ chối với `NOAUTH` |
+| Network | VM2 tách network riêng `data-net` |
 | Cổng mở | VM1: 22, 8080, 5555, 3000, 9090, 9093, 8081 · VM2: 22, 5432, 6379, 9000, 9001 · VM3: 22, 9100 |
 
 **Lưu ý đã kiểm chứng:** UFW không chặn được cổng do Docker publish vì Docker

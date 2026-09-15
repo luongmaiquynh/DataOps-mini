@@ -9,6 +9,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
+    networks:
+      - data-net
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,6 +30,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     command: server /data --console-address ":9001"
+    networks:
+      - data-net
     volumes:
       - minio_data:/data
 
@@ -35,9 +39,27 @@ services:
     image: redis:7.4.9
     container_name: redis_cache
     restart: always
+    # Redis mặc định không có xác thực. Cổng 6379 phải publish cho VM1 dùng
+    # nên bắt buộc đặt mật khẩu, nếu không ai trong mạng lab cũng đọc ghi
+    # được hàng đợi task của Airflow.
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD chua duoc dat}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD chua duoc dat}
     ports:
       - "6379:6379"
+    networks:
+      - data-net
 
 volumes:
   postgres_data:
   minio_data:
+
+networks:
+  # Network riêng cho tầng dữ liệu, không dùng chung với stack khác.
+  data-net:
+    driver: bridge
