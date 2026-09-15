@@ -5,11 +5,20 @@
 # Cron: 0 2 * * * /opt/dataops/backup/backup.sh >> /var/log/dataops-backup.log 2>&1
 # =============================================================================
 
-# --- Cấu hình ---
-POSTGRES_HOST="192.168.64.3"
-POSTGRES_PORT="5432"
-POSTGRES_USER="dataops"
-POSTGRES_DB="dataops_db"
+# --- Nạp cấu hình từ .env do Ansible sinh (chứa mật khẩu) ---
+ENV_FILE="${ENV_FILE:-/home/dataops/dataops/.env}"
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "$ENV_FILE"
+    set +a
+fi
+
+# --- Cấu hình (giá trị trong .env được ưu tiên) ---
+POSTGRES_HOST="${POSTGRES_HOST:-192.168.64.3}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+POSTGRES_USER="${POSTGRES_USER:-dataops}"
+POSTGRES_DB="${POSTGRES_DB:-dataops_db}"
 BACKUP_DIR="/opt/backup/postgres"
 RETENTION_DAYS=7
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -27,6 +36,12 @@ echo "$LOG_PREFIX File     : $BACKUP_FILE"
 PG_DUMP="/usr/lib/postgresql/15/bin/pg_dump"
 PG_ISREADY="/usr/lib/postgresql/15/bin/pg_isready"
 
+# --- Không có mật khẩu thì dừng ngay, không đoán giá trị mặc định ---
+if [ -z "${POSTGRES_PASSWORD:-}" ]; then
+    echo "$LOG_PREFIX [ERROR] Thiếu POSTGRES_PASSWORD. Kiểm tra file $ENV_FILE"
+    exit 1
+fi
+
 # --- Kiểm tra kết nối PostgreSQL ---
 if ! "$PG_ISREADY" -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -q; then
     echo "$LOG_PREFIX [ERROR] Không kết nối được PostgreSQL tại $POSTGRES_HOST:$POSTGRES_PORT"
@@ -34,7 +49,7 @@ if ! "$PG_ISREADY" -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -
 fi
 
 # --- Thực hiện backup và nén gzip ---
-PGPASSWORD="${POSTGRES_PASSWORD:-***REMOVED***}" "$PG_DUMP" \
+PGPASSWORD="$POSTGRES_PASSWORD" "$PG_DUMP" \
     -h "$POSTGRES_HOST" \
     -p "$POSTGRES_PORT" \
     -U "$POSTGRES_USER" \

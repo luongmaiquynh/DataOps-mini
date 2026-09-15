@@ -4,14 +4,13 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 # --- Cấu hình kết nối lấy từ biến môi trường ---
-POSTGRES_CONN = os.getenv(
-    'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN',
-    'postgresql+psycopg2://dataops:***REMOVED***@192.168.64.3:5432/dataops_db'
-)
-MINIO_ENDPOINT = os.getenv('MINIO_HOST', '192.168.64.3') + ':' + os.getenv('MINIO_PORT', '9000')
-MINIO_ACCESS   = os.getenv('MINIO_ROOT_USER', 'minioadmin')
-MINIO_SECRET   = os.getenv('MINIO_ROOT_PASSWORD', '***REMOVED***')
-MINIO_BUCKET   = os.getenv('MINIO_BUCKET', 'dataops-lake')
+# Không đặt giá trị mặc định chứa mật khẩu: thiếu biến thì task phải fail
+# rõ ràng thay vì âm thầm thử một credential đã biết.
+POSTGRES_CONN = os.getenv('AIRFLOW__DATABASE__SQL_ALCHEMY_CONN', '')
+MINIO_ENDPOINT = os.getenv('MINIO_HOST', '') + ':' + os.getenv('MINIO_PORT', '')
+MINIO_ACCESS   = os.getenv('MINIO_ROOT_USER', '')
+MINIO_SECRET   = os.getenv('MINIO_ROOT_PASSWORD', '')
+MINIO_BUCKET   = os.getenv('MINIO_BUCKET', '')
 CSV_PATH       = '/opt/airflow/sample_data/sample.csv'
 
 default_args = {

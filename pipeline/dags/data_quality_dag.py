@@ -3,10 +3,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
-POSTGRES_CONN = os.getenv(
-    'AIRFLOW__DATABASE__SQL_ALCHEMY_CONN',
-    'postgresql+psycopg2://dataops:***REMOVED***@192.168.64.3:5432/dataops_db'
-)
+# Không đặt giá trị mặc định chứa mật khẩu.
+POSTGRES_CONN = os.getenv('AIRFLOW__DATABASE__SQL_ALCHEMY_CONN', '')
 
 default_args = {
     'owner': 'dataops',

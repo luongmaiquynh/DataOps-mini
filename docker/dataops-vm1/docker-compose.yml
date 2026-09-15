@@ -15,6 +15,13 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
     AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    # Trước đây thiếu hẳn nhóm biến này nên DAG phải dùng giá trị hardcode
+    # trong code để kết nối MinIO.
+    MINIO_HOST: ${MINIO_HOST:?MINIO_HOST chua duoc dat}
+    MINIO_PORT: ${MINIO_PORT:?MINIO_PORT chua duoc dat}
+    MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER chua duoc dat}
+    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD chua duoc dat}
+    MINIO_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET chua duoc dat}
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
     _PIP_ADDITIONAL_REQUIREMENTS: "boto3==1.34.0 psycopg2-binary==2.9.9 pandas==2.0.3 requests==2.31.0 sqlalchemy==1.4.52"
   volumes:

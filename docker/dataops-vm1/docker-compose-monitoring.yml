@@ -29,7 +29,7 @@ services:
     restart: always
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-***REMOVED***}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD chua duoc dat}
       GF_USERS_ALLOW_SIGN_UP: 'false'
     volumes:
       - grafana_data:/var/lib/grafana
@@ -109,7 +109,7 @@ services:
     container_name: postgres_exporter
     restart: always
     environment:
-      DATA_SOURCE_NAME: "postgresql://dataops:***REMOVED***@192.168.64.3:5432/dataops_db?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable"
     # Không publish ra host — chỉ Prometheus trong cùng network cần truy cập.
     networks:
       - monitoring
