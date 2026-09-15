@@ -5,7 +5,7 @@ from typing import Any
 import boto3
 import pandas as pd
 from botocore.exceptions import ClientError
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,36 @@ def load_to_postgres(df: pd.DataFrame, table: str, conn_str: str, if_exists: str
         return len(df)
     except Exception as e:
         logger.error("Failed to load data into PostgreSQL table '%s': %s", table, e)
+        raise
+
+
+def upsert_dataframe(df: pd.DataFrame, table: str, conn_str: str,
+                     key_column: str) -> int:
+    """Ghi DataFrame vào bảng theo kiểu delete-insert trong MỘT transaction.
+
+    Tự tạo bảng nếu chưa tồn tại, nên chạy được trên database trống — đây là
+    kịch bản deploy lại từ đầu. Xoá các dòng trùng khoá rồi chèn lại, tất cả
+    trong một transaction: nếu bước chèn lỗi thì phần xoá cũng được rollback,
+    không mất dữ liệu cũ.
+
+    Returns số dòng đã ghi.
+    """
+    engine = get_postgres_engine(conn_str)
+    keys = df[key_column].tolist()
+    try:
+        with engine.begin() as conn:
+            # to_sql với if_exists='append' tự tạo bảng nếu chưa có;
+            # head(0) chỉ tạo cấu trúc, không chèn dòng nào.
+            df.head(0).to_sql(table, conn, if_exists="append", index=False)
+            conn.execute(
+                text(f"DELETE FROM {table} WHERE {key_column} = ANY(:keys)"),
+                {"keys": keys},
+            )
+            df.to_sql(table, conn, if_exists="append", index=False)
+        logger.info("Upserted %d rows into '%s' on key '%s'", len(df), table, key_column)
+        return len(df)
+    except Exception as e:
+        logger.error("Failed to upsert into '%s': %s", table, e)
         raise
 
 

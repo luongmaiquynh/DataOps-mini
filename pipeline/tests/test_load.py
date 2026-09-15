@@ -7,7 +7,8 @@ import pytest  # noqa: E402
 import pandas as pd  # noqa: E402
 from unittest.mock import patch, MagicMock, call  # noqa: E402
 from etl.load import (  # noqa: E402
-    load_to_postgres, load_to_minio, get_postgres_engine, get_minio_client
+    load_to_postgres, load_to_minio, get_postgres_engine, get_minio_client,
+    upsert_dataframe
 )
 
 
@@ -139,3 +140,60 @@ def test_load_to_minio_raises_on_client_error(sample_df):
                 access_key='minioadmin',
                 secret_key='***REMOVED***',
             )
+
+
+# ─── upsert_dataframe ─────────────────────────────────────────
+
+def _mock_engine_with_conn():
+    """Trả về (patcher create_engine, connection giả trong transaction)."""
+    conn = MagicMock()
+    engine = MagicMock()
+    engine.begin.return_value.__enter__.return_value = conn
+    return engine, conn
+
+
+def test_upsert_dataframe_returns_row_count(sample_df):
+    """Phải trả về số dòng đã ghi."""
+    engine, _ = _mock_engine_with_conn()
+    with patch('etl.load.create_engine', return_value=engine):
+        with patch.object(pd.DataFrame, 'to_sql'):
+            result = upsert_dataframe(sample_df, 'employees', 'postgresql://x/y', 'id')
+    assert result == 3
+
+
+def test_upsert_dataframe_creates_table_before_insert(sample_df):
+    """Gọi to_sql hai lần: một lần tạo cấu trúc bảng, một lần chèn dữ liệu."""
+    engine, _ = _mock_engine_with_conn()
+    with patch('etl.load.create_engine', return_value=engine):
+        with patch.object(pd.DataFrame, 'to_sql') as mock_to_sql:
+            upsert_dataframe(sample_df, 'employees', 'postgresql://x/y', 'id')
+    assert mock_to_sql.call_count == 2
+
+
+def test_upsert_dataframe_deletes_matching_keys(sample_df):
+    """DELETE phải nhận đúng danh sách khoá của DataFrame."""
+    engine, conn = _mock_engine_with_conn()
+    with patch('etl.load.create_engine', return_value=engine):
+        with patch.object(pd.DataFrame, 'to_sql'):
+            upsert_dataframe(sample_df, 'employees', 'postgresql://x/y', 'id')
+    conn.execute.assert_called_once()
+    assert conn.execute.call_args[0][1] == {'keys': [1, 2, 3]}
+
+
+def test_upsert_dataframe_runs_in_single_transaction(sample_df):
+    """Toàn bộ thao tác nằm trong một engine.begin() duy nhất."""
+    engine, _ = _mock_engine_with_conn()
+    with patch('etl.load.create_engine', return_value=engine):
+        with patch.object(pd.DataFrame, 'to_sql'):
+            upsert_dataframe(sample_df, 'employees', 'postgresql://x/y', 'id')
+    engine.begin.assert_called_once()
+
+
+def test_upsert_dataframe_raises_on_db_error(sample_df):
+    """Lỗi database phải được ném ra để Airflow đánh dấu task fail."""
+    engine, conn = _mock_engine_with_conn()
+    conn.execute.side_effect = RuntimeError('connection lost')
+    with patch('etl.load.create_engine', return_value=engine):
+        with patch.object(pd.DataFrame, 'to_sql'):
+            with pytest.raises(RuntimeError):
+                upsert_dataframe(sample_df, 'employees', 'postgresql://x/y', 'id')

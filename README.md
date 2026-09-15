@@ -57,7 +57,7 @@ dataops/
 │   │   ├── transform.py
 │   │   ├── load.py
 │   │   └── quality_check.py
-│   └── tests/              # Unit tests (61 tests, 6 files)
+│   └── tests/              # Unit tests (66 tests, 6 files)
 │       ├── test_extract.py
 │       ├── test_transform.py
 │       ├── test_quality.py
@@ -213,7 +213,7 @@ flake8 etl/ dags/ tests/
 # Chạy tất cả tests
 pytest tests/ -v
 
-# Kết quả: 61 passed, 0 warnings
+# Kết quả: 66 passed, 0 warnings
 ```
 
 | File | Tests | Phạm vi |
@@ -221,7 +221,7 @@ pytest tests/ -v
 | `test_extract.py` | 10 | extract_from_csv, extract_from_api |
 | `test_transform.py` | 15 | clean_data, normalize_columns, fill_missing, cast_types |
 | `test_quality.py` | 12 | run_quality_check, assert_quality, QualityReport |
-| `test_load.py` | 8 | load_to_postgres, load_to_minio |
+| `test_load.py` | 13 | load_to_postgres, load_to_minio, upsert_dataframe |
 | `test_dag_ingest_csv.py` | 9 | task_extract/transform/quality/load (CSV DAG) |
 | `test_dag_ingest_api.py` | 7 | task_extract/transform/quality/load (API DAG) |
 
@@ -259,7 +259,7 @@ Giữ backup 7 ngày gần nhất, tự động xóa file cũ hơn.
 ### CI (GitHub Actions)
 Tự động chạy khi push lên nhánh `main`:
 - `flake8` lint check
-- `pytest` unit tests (61 tests)
+- `pytest` unit tests (66 tests)
 
 ### CD (GitHub Actions)
 Deploy lên VM1 khi push `main` — dùng **self-hosted runner** cài trên VM1:
@@ -277,5 +277,5 @@ Deploy lên VM1 khi push `main` — dùng **self-hosted runner** cài trên VM1:
 | GĐ4 | Monitoring (Prometheus, Grafana, Loki, Alertmanager) | ✅ Hoàn thành |
 | GĐ5 | Backup (script + cron trên VM3) | ✅ Hoàn thành |
 | GĐ6 | CI/CD (GitHub Actions + Ansible playbooks) | ✅ Hoàn thành |
-| GĐ7 | Unit Tests (61/61 passed, 6 files, flake8 clean) | ✅ Hoàn thành |
+| GĐ7 | Unit Tests (66/66 passed, 6 files, flake8 clean) | ✅ Hoàn thành |
 | GĐ8 | Documentation | ✅ Hoàn thành |
