@@ -1,0 +1,4 @@
+---
+# Biến dùng chung cho cả 3 VM
+app_user: dataops
+app_dir: /home/dataops/dataops

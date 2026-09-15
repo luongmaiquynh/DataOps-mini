@@ -1,0 +1,6 @@
+---
+backup_script: /home/dataops/backup.sh
+backup_dir: /opt/backup/postgres
+backup_log: /var/log/dataops-backup.log
+backup_hour: "2"
+backup_minute: "0"

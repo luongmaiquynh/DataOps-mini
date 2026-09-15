@@ -1,0 +1,3 @@
+---
+monitoring_compose_dir: "{{ app_dir }}/docker/dataops-vm1"
+monitoring_compose_file: docker-compose-monitoring.yml

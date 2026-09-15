@@ -1,0 +1,23 @@
+---
+- name: Ensure app directory exists
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+# Đẩy code từ máy điều khiển thay vì `git pull` trên VM: VM2 và VM3 không
+# có thông tin đăng nhập GitHub, và cách này không phụ thuộc vào repo
+# private hay mạng ra ngoài của VM.
+- name: Sync repository from control node
+  ansible.posix.synchronize:
+    src: "{{ repo_root }}/"
+    dest: "{{ app_dir }}/"
+    archive: false
+    recursive: true
+    times: true
+    perms: true
+    delete: false
+    rsync_opts: "{{ app_code_excludes }}"
+  become: false

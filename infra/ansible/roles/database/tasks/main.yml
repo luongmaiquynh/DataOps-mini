@@ -1,0 +1,23 @@
+---
+# project_src trỏ đúng thư mục chứa file compose, để đường dẫn tương đối
+# và file .env trong thư mục đó được giải đúng như khi chạy tay.
+- name: Deploy PostgreSQL + Redis + MinIO
+  community.docker.docker_compose_v2:
+    project_src: "{{ database_compose_dir }}"
+    files:
+      - docker-compose.yml
+    state: present
+  become: false
+
+- name: Wait for PostgreSQL to accept connections
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 5432
+    timeout: 90
+
+- name: Verify PostgreSQL is ready
+  ansible.builtin.command: docker exec postgres_db pg_isready -U {{ app_user }}
+  become: false
+  register: pg_ready
+  changed_when: false
+  failed_when: pg_ready.rc != 0

@@ -1,0 +1,77 @@
+
+PLAY [Database layer (VM2)] ****************************************************
+skipping: no hosts matched
+
+PLAY [Airflow and monitoring (VM1)] ********************************************
+skipping: no hosts matched
+
+PLAY [Node exporter and backup (VM3)] ******************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [vm3]
+
+TASK [docker : Install prerequisites] ******************************************
+ok: [vm3]
+
+TASK [docker : Create keyring directory] ***************************************
+ok: [vm3]
+
+TASK [docker : Download Docker GPG key] ****************************************
+ok: [vm3]
+
+TASK [docker : Remove legacy Docker repository entry] **************************
+ok: [vm3]
+
+TASK [docker : Add Docker repository] ******************************************
+ok: [vm3]
+
+TASK [docker : Install Docker packages] ****************************************
+ok: [vm3]
+
+TASK [docker : Ensure Docker service is running and enabled] *******************
+ok: [vm3]
+
+TASK [docker : Add users to docker group] **************************************
+ok: [vm3] => (item=dataops)
+
+TASK [app_code : Ensure app directory exists] **********************************
+[WARNING]: Deprecation warnings can be disabled by setting `deprecation_warnings=False` in ansible.cfg.
+[DEPRECATION WARNING]: Importing 'to_text' from 'ansible.module_utils._text' is deprecated. This feature will be removed from ansible-core version 2.24. Use ansible.module_utils.common.text.converters instead.
+[DEPRECATION WARNING]: The `ansible.module_utils.common._collections_compat` module is deprecated. This feature will be removed from ansible-core version 2.24. Use `collections.abc` from the Python standard library instead.
+ok: [vm3]
+
+TASK [app_code : Sync repository from control node] ****************************
+[DEPRECATION WARNING]: Importing 'to_bytes' from 'ansible.module_utils._text' is deprecated. This feature will be removed from ansible-core version 2.24. Use ansible.module_utils.common.text.converters instead.
+[DEPRECATION WARNING]: Importing 'to_native' from 'ansible.module_utils._text' is deprecated. This feature will be removed from ansible-core version 2.24. Use ansible.module_utils.common.text.converters instead.
+ok: [vm3]
+
+TASK [node_exporter : Deploy node-exporter] ************************************
+ok: [vm3]
+
+TASK [node_exporter : Wait for node-exporter metrics endpoint] *****************
+ok: [vm3]
+
+TASK [backup : Add PostgreSQL APT key] *****************************************
+ok: [vm3]
+
+TASK [backup : Add PostgreSQL repository] **************************************
+ok: [vm3]
+
+TASK [backup : Install postgresql-client-15] ***********************************
+ok: [vm3]
+
+TASK [backup : Create backup directory] ****************************************
+ok: [vm3]
+
+TASK [backup : Install backup script from synced repo] *************************
+ok: [vm3]
+
+TASK [backup : Ensure backup log file exists] **********************************
+ok: [vm3]
+
+TASK [backup : Schedule daily backup] ******************************************
+ok: [vm3]
+
+PLAY RECAP *********************************************************************
+vm3                        : ok=20   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

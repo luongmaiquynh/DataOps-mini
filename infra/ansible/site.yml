@@ -1,6 +1,31 @@
 ---
-# site.yml – Run all playbooks in order
-# Usage: ansible-playbook site.yml
-- import_playbook: playbook-vm2.yml   # DB phải lên trước
-- import_playbook: playbook-vm1.yml   # Airflow + Monitoring
-- import_playbook: playbook-vm3.yml   # Node Exporter + Backup
+# Entrypoint triển khai toàn hệ thống.
+# Chạy: ansible-playbook site.yml --ask-become-pass
+#
+# Thứ tự bắt buộc: VM2 trước (Airflow cần PostgreSQL và Redis sẵn sàng),
+# rồi VM1, cuối cùng VM3.
+- name: Database layer (VM2)
+  hosts: vm2
+  become: true
+  roles:
+    - docker
+    - app_code
+    - database
+
+- name: Airflow and monitoring (VM1)
+  hosts: vm1
+  become: true
+  roles:
+    - docker
+    - app_code
+    - airflow
+    - monitoring
+
+- name: Node exporter and backup (VM3)
+  hosts: vm3
+  become: true
+  roles:
+    - docker
+    - app_code
+    - node_exporter
+    - backup

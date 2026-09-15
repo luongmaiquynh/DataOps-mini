@@ -1,0 +1,14 @@
+---
+- name: Deploy node-exporter
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_dir }}/docker/dataops-vm3"
+    files:
+      - docker-compose.yml
+    state: present
+  become: false
+
+- name: Wait for node-exporter metrics endpoint
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 9100
+    timeout: 60

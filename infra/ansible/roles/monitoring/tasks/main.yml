@@ -1,0 +1,26 @@
+---
+- name: Deploy monitoring stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_compose_dir }}"
+    files:
+      - "{{ monitoring_compose_file }}"
+    state: present
+  become: false
+
+- name: Wait for Prometheus to answer
+  ansible.builtin.uri:
+    url: http://localhost:9090/-/ready
+    status_code: 200
+  register: prom_ready
+  retries: 12
+  delay: 5
+  until: prom_ready.status is defined and prom_ready.status == 200
+
+- name: Wait for Grafana to answer
+  ansible.builtin.uri:
+    url: http://localhost:3000/api/health
+    status_code: 200
+  register: grafana_ready
+  retries: 12
+  delay: 5
+  until: grafana_ready.status is defined and grafana_ready.status == 200

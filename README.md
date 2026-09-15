@@ -117,20 +117,37 @@ REDIS_PORT=6379
 
 ### Deploy bằng Ansible
 
+Yêu cầu trên máy điều khiển (macOS): `ansible`, các collection `ansible.posix` và
+`community.docker`, cùng **GNU rsync** (`brew install rsync`). Bản `openrsync` mà
+macOS cài sẵn không xuất được thông tin thay đổi nên Ansible sẽ luôn báo `changed`.
+
 ```bash
 cd infra/ansible
+
+# Kiểm tra kết nối trước khi deploy
+ansible all -m ping
 
 # Deploy toàn bộ hệ thống (vm2 → vm1 → vm3)
 ansible-playbook site.yml --ask-become-pass
 
 # Hoặc deploy riêng từng VM
-ansible-playbook playbook-vm1.yml --ask-become-pass
-ansible-playbook playbook-vm2.yml --ask-become-pass
-ansible-playbook playbook-vm3.yml --ask-become-pass
+ansible-playbook site.yml --limit vm2 --ask-become-pass
 
-# Kiểm tra kết nối trước khi deploy
-ansible all -m ping
+# Chỉ cài Docker
+ansible-playbook install_docker.yml --ask-become-pass
 ```
+
+Cấu trúc role:
+
+| Role | Chạy ở | Nhiệm vụ |
+|---|---|---|
+| `docker` | cả 3 VM | Docker Engine + Compose plugin |
+| `app_code` | cả 3 VM | Đồng bộ code từ máy điều khiển (không đụng `.env` của VM) |
+| `database` | vm2 | PostgreSQL, Redis, MinIO |
+| `airflow` | vm1 | Airflow CeleryExecutor |
+| `monitoring` | vm1 | Prometheus, Grafana, Loki, Alertmanager, các exporter |
+| `node_exporter` | vm3 | node-exporter |
+| `backup` | vm3 | postgresql-client-15, script backup, cron 2:00 |
 
 ### Deploy thủ công
 

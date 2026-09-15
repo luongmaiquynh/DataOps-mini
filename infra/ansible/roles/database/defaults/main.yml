@@ -1,0 +1,2 @@
+---
+database_compose_dir: "{{ app_dir }}/docker/dataops-vm2"

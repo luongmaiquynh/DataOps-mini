@@ -1,0 +1,17 @@
+---
+# Thư mục gốc của repo trên máy điều khiển (infra/ansible/../..)
+repo_root: "{{ playbook_dir }}/../.."
+# .env bị loại trừ có chủ đích: mỗi VM giữ file .env riêng, đồng bộ từ máy
+# Mac sẽ ghi đè và làm mất biến kết nối. GĐ 1.2 sẽ sinh .env từ template.
+app_code_excludes:
+  - "--exclude=.git"
+  - "--exclude=.venv"
+  - "--exclude=.pytest_cache"
+  - "--exclude=__pycache__"
+  - "--exclude=.env"
+  - "--exclude=logs/"
+  - "--exclude=plugins/"
+  - "--exclude=.DS_Store"
+  # File bằng chứng được ghi trong lúc playbook chạy nên luôn khác nhau;
+  # đồng bộ chúng sẽ làm task này không bao giờ idempotent.
+  - "--exclude=docs/idempotency-*.txt"

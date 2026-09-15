@@ -1,0 +1,18 @@
+---
+- name: Deploy Airflow stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ airflow_compose_dir }}"
+    files:
+      - docker-compose.yml
+    state: present
+  become: false
+
+# Container cài thêm gói Python lúc khởi động nên webserver cần vài phút.
+- name: Wait for Airflow webserver to become healthy
+  ansible.builtin.uri:
+    url: "{{ airflow_health_url }}"
+    status_code: 200
+  register: airflow_health
+  retries: 30
+  delay: 10
+  until: airflow_health.status is defined and airflow_health.status == 200

@@ -1,0 +1,59 @@
+---
+# Ubuntu 22.04 chỉ có postgresql-client-14 trong repo mặc định, nhưng server
+# là PostgreSQL 15 — pg_dump lệch version sẽ từ chối chạy. Phải thêm repo pgdg.
+- name: Add PostgreSQL APT key
+  ansible.builtin.get_url:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    dest: /etc/apt/keyrings/postgresql.asc
+    mode: "0644"
+
+- name: Add PostgreSQL repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/postgresql.asc]
+      https://apt.postgresql.org/pub/repos/apt
+      {{ ansible_facts['distribution_release'] }}-pgdg main
+    filename: pgdg
+    state: present
+
+- name: Install postgresql-client-15
+  ansible.builtin.apt:
+    name: postgresql-client-15
+    state: present
+    update_cache: true
+
+- name: Create backup directory
+  ansible.builtin.file:
+    path: "{{ backup_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Install backup script from synced repo
+  ansible.builtin.copy:
+    src: "{{ app_dir }}/backup/backup.sh"
+    dest: "{{ backup_script }}"
+    remote_src: true
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Ensure backup log file exists
+  ansible.builtin.file:
+    path: "{{ backup_log }}"
+    state: touch
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+
+- name: Schedule daily backup
+  ansible.builtin.cron:
+    name: Daily PostgreSQL backup
+    user: "{{ app_user }}"
+    minute: "{{ backup_minute }}"
+    hour: "{{ backup_hour }}"
+    job: "{{ backup_script }} >> {{ backup_log }} 2>&1"
+    state: present
