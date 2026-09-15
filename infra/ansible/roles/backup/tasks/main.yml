@@ -22,6 +22,15 @@
     state: present
     update_cache: true
 
+# node-exporter đọc thư mục này để phơi metric của các cron job ra Prometheus.
+- name: Create node-exporter textfile directory
+  ansible.builtin.file:
+    path: "{{ textfile_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
 - name: Create backup directory
   ansible.builtin.file:
     path: "{{ backup_dir }}"

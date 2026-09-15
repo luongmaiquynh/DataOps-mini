@@ -7,6 +7,14 @@
     state: present
   become: false
 
+# File cấu hình được mount vào container; đổi nội dung không tự có hiệu lực.
+# Prometheus chạy với --web.enable-lifecycle nên nạp lại được qua API.
+- name: Reload Prometheus configuration
+  ansible.builtin.command:
+    cmd: docker exec prometheus wget -q -O- --post-data= http://localhost:9090/-/reload
+  become: false
+  changed_when: false
+
 # Kiểm tra qua chính Caddy: xác nhận cả reverse proxy lẫn dịch vụ phía sau.
 # validate_certs tắt vì đây là chứng chỉ do CA nội bộ của Caddy cấp.
 - name: Wait for Prometheus to answer through the proxy

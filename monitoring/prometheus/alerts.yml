@@ -65,3 +65,47 @@ groups:
         annotations:
           summary: "Container {{ $labels.name }} restart liên tục"
           description: "Container restart >= 3 lần trong 15 phút."
+
+  - name: backup
+    rules:
+      # Không có bản backup thành công nào trong 26 giờ qua.
+      # Ngưỡng 26h thay vì 24h để chừa chỗ cho lần chạy 2:00 sáng bị chậm.
+      - alert: BackupStale
+        expr: time() - dataops_backup_last_success_timestamp_seconds > 26 * 3600
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup PostgreSQL đã quá hạn"
+          description: "Bản backup thành công gần nhất cách đây {{ $value | humanizeDuration }}."
+
+      # Không có metric nào = cron không chạy, hoặc node-exporter mất textfile.
+      - alert: BackupMetricMissing
+        expr: absent(dataops_backup_last_success_timestamp_seconds)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Không thấy metric backup"
+          description: "Cron backup có thể không chạy, hoặc node-exporter mất thư mục textfile."
+
+      # Backup tồn tại nhưng restore thử không thành công — nguy hiểm hơn cả
+      # không có backup, vì dễ tạo cảm giác an toàn giả.
+      - alert: BackupRestoreTestFailed
+        expr: dataops_restore_test_success == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Bản backup không restore được"
+          description: "Lần kiểm chứng restore gần nhất thất bại. Backup hiện không dùng được."
+
+      # Kiểm chứng chạy hàng tuần; quá 8 ngày là job đã ngừng.
+      - alert: BackupRestoreTestStale
+        expr: time() - dataops_restore_test_timestamp_seconds > 8 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Lâu rồi chưa kiểm chứng backup"
+          description: "Lần kiểm chứng restore gần nhất cách đây {{ $value | humanizeDuration }}."

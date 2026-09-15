@@ -8,3 +8,4 @@ restore_test_script: /home/dataops/restore-test.sh
 restore_test_log: /var/log/dataops-restore-test.log
 restore_test_weekday: "0"      # 0 = Chủ nhật
 restore_test_hour: "3"
+textfile_dir: /var/lib/node_exporter/textfile

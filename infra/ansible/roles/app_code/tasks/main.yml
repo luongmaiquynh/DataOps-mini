@@ -19,5 +19,8 @@
     times: true
     perms: true
     delete: false
-    rsync_opts: "{{ app_code_excludes }}"
+    # --inplace giữ nguyên inode của file. Docker mount file cấu hình đơn lẻ
+    # theo inode, nên nếu rsync tạo file mới thì container vẫn đọc bản cũ —
+    # đã xảy ra thật với alerts.yml: host có 10 alert, Prometheus chỉ thấy 6.
+    rsync_opts: "{{ app_code_excludes + ['--inplace'] }}"
   become: false

@@ -22,6 +22,29 @@ MIN_TABLES="${MIN_TABLES:-30}"
 MIN_EMPLOYEE_ROWS="${MIN_EMPLOYEE_ROWS:-1}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+TEXTFILE_DIR="${TEXTFILE_DIR:-/var/lib/node_exporter/textfile}"
+METRIC_FILE="$TEXTFILE_DIR/dataops_restore_test.prom"
+
+write_metrics() {
+    local success="$1" tables="${2:-0}" rows="${3:-0}"
+    [ -d "$TEXTFILE_DIR" ] || return 0
+    local tmp="$METRIC_FILE.$$"
+    {
+        echo "# HELP dataops_restore_test_success Lần kiểm chứng restore gần nhất có đạt không (1/0)"
+        echo "# TYPE dataops_restore_test_success gauge"
+        echo "dataops_restore_test_success $success"
+        echo "# HELP dataops_restore_test_timestamp_seconds Thời điểm chạy kiểm chứng gần nhất"
+        echo "# TYPE dataops_restore_test_timestamp_seconds gauge"
+        echo "dataops_restore_test_timestamp_seconds $(date +%s)"
+        echo "# HELP dataops_restore_test_tables Số bảng khôi phục được"
+        echo "# TYPE dataops_restore_test_tables gauge"
+        echo "dataops_restore_test_tables $tables"
+        echo "# HELP dataops_restore_test_rows Số dòng dữ liệu nghiệp vụ khôi phục được"
+        echo "# TYPE dataops_restore_test_rows gauge"
+        echo "dataops_restore_test_rows $rows"
+    } > "$tmp" && mv "$tmp" "$METRIC_FILE"
+}
 cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
@@ -31,6 +54,7 @@ log "===== BẮT ĐẦU KIỂM CHỨNG BACKUP ====="
 BACKUP_FILE=$(ls -t "$BACKUP_DIR"/backup_*.sql.gz 2>/dev/null | head -1)
 if [ -z "$BACKUP_FILE" ]; then
     log "[ERROR] Không tìm thấy file backup nào trong $BACKUP_DIR"
+    write_metrics 0
     exit 1
 fi
 log "File kiểm tra : $(basename "$BACKUP_FILE") ($(du -h "$BACKUP_FILE" | cut -f1))"
@@ -39,6 +63,7 @@ log "Tuổi của file : $(( ( $(date +%s) - $(stat -c %Y "$BACKUP_FILE") ) / 36
 # --- Bước 1: file nén còn nguyên vẹn không ---
 if ! gzip -t "$BACKUP_FILE" 2>/dev/null; then
     log "[ERROR] File gzip hỏng, không giải nén được"
+    write_metrics 0
     exit 1
 fi
 log "[OK] File gzip hợp lệ"
@@ -46,6 +71,7 @@ log "[OK] File gzip hợp lệ"
 # --- Bước 2: dựng PostgreSQL tạm ---
 if ! docker run -d --name "$CONTAINER" -e POSTGRES_PASSWORD="$TMP_PASS" "$PG_IMAGE" >/dev/null 2>&1; then
     log "[ERROR] Không dựng được container PostgreSQL tạm từ image $PG_IMAGE"
+    write_metrics 0
     exit 1
 fi
 
@@ -72,6 +98,7 @@ fi
 docker exec "$CONTAINER" psql -U postgres -q -c "CREATE DATABASE $CHECK_DB" >/dev/null 2>&1
 if ! zcat "$BACKUP_FILE" | docker exec -i "$CONTAINER" psql -U postgres -d "$CHECK_DB" -q -v ON_ERROR_STOP=1 >/dev/null 2>&1; then
     log "[ERROR] Restore thất bại — bản backup KHÔNG dùng được"
+    write_metrics 0
     exit 1
 fi
 log "[OK] Restore thành công"
@@ -92,10 +119,12 @@ FAILED=0
 [ "${EMPLOYEES:-0}" -lt "$MIN_EMPLOYEE_ROWS" ] && { log "[ERROR] Bảng employees rỗng"; FAILED=1; }
 
 if [ "$FAILED" -ne 0 ]; then
+    write_metrics 0 "${TABLES:-0}" "$(( ${EMPLOYEES:-0} + ${WEATHER:-0} ))"
     log "===== KIỂM CHỨNG THẤT BẠI ====="
     exit 1
 fi
 
+write_metrics 1 "$TABLES" "$(( EMPLOYEES + WEATHER ))"
 log "[OK] Dữ liệu đầy đủ sau khi restore"
 log "===== KIỂM CHỨNG THÀNH CÔNG ====="
 exit 0

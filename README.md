@@ -323,6 +323,18 @@ ssh dataops@192.168.64.4 "bash /home/dataops/restore-test.sh"
 tail -f /var/log/dataops-restore-test.log
 ```
 
+Kết quả được đưa vào Prometheus qua textfile collector của node-exporter:
+
+| Metric | Ý nghĩa |
+|---|---|
+| `dataops_backup_last_success_timestamp_seconds` | Thời điểm backup thành công gần nhất |
+| `dataops_backup_size_bytes` | Dung lượng bản backup |
+| `dataops_restore_test_success` | Lần kiểm chứng restore gần nhất đạt hay không |
+| `dataops_restore_test_tables` | Số bảng khôi phục được |
+
+Alert đi kèm: `BackupStale` (quá 26 giờ không có backup mới), `BackupMetricMissing`,
+`BackupRestoreTestFailed`, `BackupRestoreTestStale` (quá 8 ngày chưa kiểm chứng).
+
 Kết quả lần chạy 15/09/2026: 49 bảng, `employees` 5 dòng, `weather_hanoi` 144
 dòng. Đã thử với một file backup cố tình làm hỏng để xác nhận script báo lỗi.
 

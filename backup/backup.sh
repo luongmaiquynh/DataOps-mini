@@ -25,6 +25,35 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/backup_${POSTGRES_DB}_${TIMESTAMP}.sql.gz"
 ROLES_FILE="$BACKUP_DIR/roles_${TIMESTAMP}.sql.gz"
 LOG_PREFIX="[$(date '+%Y-%m-%d %H:%M:%S')]"
+START_TS=$(date +%s)
+
+# Thư mục textfile của node-exporter: cách đưa kết quả cron job vào Prometheus
+TEXTFILE_DIR="${TEXTFILE_DIR:-/var/lib/node_exporter/textfile}"
+METRIC_FILE="$TEXTFILE_DIR/dataops_backup.prom"
+
+# Ghi metric theo kiểu ghi file tạm rồi đổi tên, để node-exporter không bao giờ
+# đọc phải một file viết dở.
+write_metrics() {
+    local success="$1" size_bytes="$2"
+    [ -d "$TEXTFILE_DIR" ] || return 0
+    local tmp="$METRIC_FILE.$$"
+    {
+        echo "# HELP dataops_backup_success Lần backup gần nhất có thành công không (1/0)"
+        echo "# TYPE dataops_backup_success gauge"
+        echo "dataops_backup_success $success"
+        echo "# HELP dataops_backup_duration_seconds Thời gian chạy backup"
+        echo "# TYPE dataops_backup_duration_seconds gauge"
+        echo "dataops_backup_duration_seconds $(( $(date +%s) - START_TS ))"
+        if [ "$success" -eq 1 ]; then
+            echo "# HELP dataops_backup_last_success_timestamp_seconds Thời điểm backup thành công gần nhất"
+            echo "# TYPE dataops_backup_last_success_timestamp_seconds gauge"
+            echo "dataops_backup_last_success_timestamp_seconds $(date +%s)"
+            echo "# HELP dataops_backup_size_bytes Dung lượng bản backup gần nhất"
+            echo "# TYPE dataops_backup_size_bytes gauge"
+            echo "dataops_backup_size_bytes $size_bytes"
+        fi
+    } > "$tmp" && mv "$tmp" "$METRIC_FILE"
+}
 
 # --- Tạo thư mục backup nếu chưa có ---
 mkdir -p "$BACKUP_DIR"
@@ -47,6 +76,7 @@ fi
 # --- Kiểm tra kết nối PostgreSQL ---
 if ! "$PG_ISREADY" -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -q; then
     echo "$LOG_PREFIX [ERROR] Không kết nối được PostgreSQL tại $POSTGRES_HOST:$POSTGRES_PORT"
+    write_metrics 0 0
     exit 1
 fi
 
@@ -67,6 +97,7 @@ if [ $DUMP_EXIT -eq 0 ] && [ -s "$BACKUP_FILE" ]; then
 else
     echo "$LOG_PREFIX [ERROR] Backup thất bại! Xóa file lỗi..."
     rm -f "$BACKUP_FILE"
+    write_metrics 0 0
     exit 1
 fi
 
@@ -85,6 +116,7 @@ if [ ${PIPESTATUS[0]} -eq 0 ] && [ -s "$ROLES_FILE" ]; then
 else
     echo "$LOG_PREFIX [ERROR] Dump role thất bại — bản backup sẽ không restore được vào cụm mới"
     rm -f "$ROLES_FILE"
+    write_metrics 0 0
     exit 1
 fi
 
@@ -97,6 +129,8 @@ fi
 # --- Liệt kê các backup hiện có ---
 echo "$LOG_PREFIX Danh sách backup hiện có:"
 ls -lh "$BACKUP_DIR"/*.sql.gz 2>/dev/null || echo "$LOG_PREFIX   (không có file nào)"
+
+write_metrics 1 "$(stat -c %s "$BACKUP_FILE")"
 
 echo "$LOG_PREFIX ===== BACKUP HOÀN THÀNH ====="
 exit 0
