@@ -1,0 +1,7 @@
+---
+# Đổi daemon.json chỉ có hiệu lực sau khi Docker khởi động lại. Việc này làm
+# các container dừng vài giây rồi lên lại theo restart policy.
+- name: Restart docker
+  ansible.builtin.service:
+    name: docker
+    state: restarted

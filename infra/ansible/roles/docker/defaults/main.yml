@@ -7,3 +7,7 @@ docker_packages:
   - docker-compose-plugin      # thiếu gói này thì không có lệnh `docker compose`
 docker_users:
   - "{{ app_user }}"
+# Docker mặc định ghi log json-file KHÔNG giới hạn dung lượng; một container
+# nói nhiều có thể lấp đầy đĩa. Promtail đọc chính thư mục này.
+docker_log_max_size: "10m"
+docker_log_max_file: "3"

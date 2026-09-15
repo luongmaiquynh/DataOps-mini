@@ -46,6 +46,15 @@
     state: present
     update_cache: true
 
+- name: Limit container log size
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart docker
+
 - name: Ensure Docker service is running and enabled
   ansible.builtin.service:
     name: docker

@@ -40,7 +40,15 @@ ruler:
     local:
       directory: /loki/rules
 
+compactor:
+  working_directory: /loki/compactor
+  # Không bật thì log lưu mãi mãi và ổ đĩa chỉ có tăng.
+  retention_enabled: true
+  delete_request_store: filesystem
+
 limits_config:
+  # Giữ log 7 ngày, đủ để điều tra sự cố mà không phình đĩa.
+  retention_period: 168h
   reject_old_samples: true
   reject_old_samples_max_age: 168h
   ingestion_rate_mb: 4
