@@ -373,7 +373,18 @@ mỗi rule có annotation `runbook_url` trỏ tới hướng dẫn xử lý tư�
 | Database | `PostgreSQLDown` |
 | Container | `ContainerRestartingTooMuch` |
 | Backup | `BackupStale`, `BackupMetricMissing`, `BackupRestoreTestFailed`, `BackupRestoreTestStale` |
+| Endpoint | `EndpointDown`, `TLSCertExpiringSoon` |
 | Nhịp tim | `Watchdog` |
+
+### Kiểm tra endpoint từ bên ngoài
+
+blackbox-exporter gọi thử 5 endpoint mỗi lần scrape: Airflow, Grafana, Prometheus,
+Alertmanager và MinIO. Phép gọi đi qua IP của VM1 nên đi đúng đường người dùng đi —
+qua tường lửa, qua Caddy, rồi mới tới dịch vụ. Container "Up" mà không trả lời được
+vẫn bị phát hiện.
+
+**Đã kiểm chứng 16/09/2026:** tắt Grafana, `EndpointDown` bật lên đúng endpoint
+`https://grafana.dataops.test/api/health`.
 
 ### Dead man's switch
 

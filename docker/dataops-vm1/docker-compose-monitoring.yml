@@ -135,6 +135,26 @@ services:
     networks:
       - monitoring
 
+  # Thử gọi endpoint từ bên ngoài: container "Up" không có nghĩa dịch vụ trả lời được.
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.28.0
+    container_name: blackbox_exporter
+    restart: always
+    volumes:
+      - ../../monitoring/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    command:
+      - '--config.file=/etc/blackbox/blackbox.yml'
+    # Tên miền nội bộ chỉ có trong /etc/hosts của máy chủ, container không biết.
+    # Trỏ thẳng về IP của VM1 để phép thử đi đúng đường người dùng thật đi:
+    # qua tường lửa, qua Caddy, rồi mới tới dịch vụ.
+    extra_hosts:
+      - "grafana.dataops.test:192.168.64.2"
+      - "airflow.dataops.test:192.168.64.2"
+      - "prometheus.dataops.test:192.168.64.2"
+      - "alerts.dataops.test:192.168.64.2"
+    networks:
+      - monitoring
+
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: cadvisor

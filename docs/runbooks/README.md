@@ -11,11 +11,13 @@ Alertmanager là tới.
 | [LowMemory](LowMemory.md) | critical | RAM còn dưới 10% |
 | [BackupStale](BackupStale.md) | critical | Quá 26 giờ không có backup |
 | [BackupRestoreTestFailed](BackupRestoreTestFailed.md) | critical | Backup không restore được |
+| [EndpointDown](EndpointDown.md) | critical | Endpoint không phản hồi khi gọi thử |
 | [HighCpuUsage](HighCpuUsage.md) | warning | CPU trên 80% |
 | [DiskSpaceLow](DiskSpaceLow.md) | warning | Đĩa còn dưới 15% |
 | [ContainerRestartingTooMuch](ContainerRestartingTooMuch.md) | warning | Container crash-loop |
 | [BackupMetricMissing](BackupMetricMissing.md) | warning | Không thấy metric backup |
 | [BackupRestoreTestStale](BackupRestoreTestStale.md) | warning | Lâu chưa kiểm chứng backup |
+| [TLSCertExpiringSoon](TLSCertExpiringSoon.md) | warning | Chứng chỉ TLS sắp hết hạn |
 
 Mỗi runbook trả lời bốn câu hỏi: chuyện gì đang xảy ra, ảnh hưởng ra sao, kiểm tra
 bằng lệnh nào, và xử lý thế nào.

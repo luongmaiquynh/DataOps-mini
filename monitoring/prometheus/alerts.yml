@@ -123,6 +123,32 @@ groups:
           description: >-
             Lần kiểm chứng restore gần nhất cách đây {{ $value | humanizeDuration }}.
 
+  - name: endpoints
+    rules:
+      # Container có thể "Up" trong khi dịch vụ đã không trả lời được nữa.
+      - alert: EndpointDown
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Endpoint {{ $labels.instance }} không phản hồi"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/EndpointDown.md"
+          description: "Gọi thử từ blackbox-exporter không nhận được phản hồi hợp lệ."
+
+      # CA nội bộ của Caddy cấp chứng chỉ hạn 12 giờ và tự gia hạn khi còn
+      # khoảng 1/3 vòng đời. Ngưỡng phải nhỏ hơn thế, nếu không alert sẽ firing
+      # vĩnh viễn — đúng kiểu cảnh báo rác làm người trực mất lòng tin.
+      - alert: TLSCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 3600
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chứng chỉ của {{ $labels.instance }} sắp hết hạn"
+          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/TLSCertExpiringSoon.md"
+          description: "Caddy lẽ ra tự gia hạn; cần kiểm tra vì sao không gia hạn được."
+
   - name: watchdog
     rules:
       # Alert này LUÔN firing, không phải lỗi. Nó là nhịp tim gửi đều đặn ra

@@ -1,0 +1,30 @@
+---
+# Blackbox exporter: thử gọi thật vào endpoint từ bên ngoài, thay vì chỉ tin
+# rằng container đang chạy là dịch vụ còn dùng được.
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200]
+      method: GET
+      follow_redirects: true
+      preferred_ip_protocol: ip4
+      tls_config:
+        # Chứng chỉ do CA nội bộ của Caddy cấp nên blackbox không xác thực được.
+        # Chấp nhận bỏ qua vì đây là kết nối trong mạng lab tới chính máy mình.
+        insecure_skip_verify: true
+
+  # Airflow trả 200 kèm JSON; chỉ cần biết nó phản hồi được.
+  http_2xx_any:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200, 302, 401]
+      preferred_ip_protocol: ip4
+      tls_config:
+        insecure_skip_verify: true
+
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
