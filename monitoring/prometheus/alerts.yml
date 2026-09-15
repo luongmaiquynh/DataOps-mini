@@ -56,8 +56,9 @@ groups:
   - name: containers
     rules:
       # Cảnh báo container restart nhiều lần
+      # Loại trừ airflow_* vì chúng restart bình thường khi postgres/redis down
       - alert: ContainerRestartingTooMuch
-        expr: count by (name) (count_over_time(container_last_seen{name!=""}[15m])) >= 3
+        expr: count by (name) (count_over_time(container_last_seen{name!="",name!~"airflow.*"}[15m])) >= 3
         for: 0m
         labels:
           severity: warning
