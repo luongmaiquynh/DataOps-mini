@@ -1149,6 +1149,12 @@ pytest tests/ -v                         # 61 passed
 
 ### 8.2 Tắt hệ thống đúng kỹ thuật
 
+> **CẬP NHẬT 15/09/2026:** Không dùng `docker compose down` để tắt nữa — lệnh này
+> **xoá container**, khiến `restart: always` mất tác dụng và sau khi bật máy lại
+> thì không có gì chạy (đã xảy ra thật). Mỗi stack nay có một systemd unit:
+> dùng `sudo systemctl stop dataops-<stack>` để dừng, và các stack tự khởi động
+> lại khi máy boot. Xem phần "Khởi động và tắt hệ thống" trong README.
+
 Tắt theo thứ tự **ngược lại** với khởi động: **VM3 → VM1 → VM2**
 
 > **Lý do:** VM2 chứa PostgreSQL (metadata của Airflow) và Redis (broker). Nếu tắt VM2 trước khi Airflow dừng, các task đang chạy sẽ bị mất trạng thái.

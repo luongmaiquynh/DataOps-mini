@@ -201,6 +201,29 @@ cài Docker Engine. Sau khi dựng lại, node-exporter chạy đúng version đ
 `.env` được sinh từ template, script backup và cron 2:00 được đặt lại, và
 Prometheus nhận lại target `node-exporter-vm3`.
 
+## Khởi động và tắt hệ thống
+
+Mỗi stack là một systemd unit nên **không cần gõ lệnh docker khi bật máy**:
+
+| Máy | Unit |
+|---|---|
+| VM1 | `dataops-airflow.service`, `dataops-monitoring.service` |
+| VM2 | `dataops-database.service` |
+| VM3 | `dataops-node-exporter.service` |
+
+```bash
+sudo systemctl stop dataops-airflow      # dừng (giữ container)
+sudo systemctl start dataops-airflow     # chạy lại
+systemctl status dataops-airflow
+```
+
+Unit dùng `docker compose stop` chứ không phải `down`: `down` xoá container nên
+`restart: always` mất tác dụng, và sau khi máy khởi động lại sẽ không có gì chạy.
+
+**Đã kiểm chứng 15/09/2026:** xoá sạch container trên VM3 bằng `compose down`,
+khởi động lại máy, systemd tự dựng lại container và Prometheus nhận lại target —
+không có thao tác thủ công nào.
+
 ## Data Pipeline
 
 ### DAGs

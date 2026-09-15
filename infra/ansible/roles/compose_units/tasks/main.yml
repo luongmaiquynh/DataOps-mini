@@ -1,0 +1,25 @@
+---
+# Vì sao cần systemd: `restart: always` của Docker chỉ giữ container đang chạy,
+# nó không dựng lại container đã bị xoá. Quy trình tắt máy dùng `compose down`
+# xoá container, nên sau khi VM khởi động lại thì không còn gì chạy — đã xảy ra
+# thật sáng 15/09/2026.
+- name: Install systemd unit for each compose stack
+  ansible.builtin.template:
+    src: stack.service.j2
+    dest: "/etc/systemd/system/dataops-{{ item.name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ compose_stacks }}"
+  loop_control:
+    label: "dataops-{{ item.name }}.service"
+  notify: Reload systemd
+
+- name: Enable stacks to start on boot
+  ansible.builtin.systemd_service:
+    name: "dataops-{{ item.name }}.service"
+    enabled: true
+    daemon_reload: true
+  loop: "{{ compose_stacks }}"
+  loop_control:
+    label: "dataops-{{ item.name }}.service"

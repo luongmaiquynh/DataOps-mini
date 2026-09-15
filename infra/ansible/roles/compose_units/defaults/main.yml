@@ -1,0 +1,3 @@
+---
+# Mỗi phần tử: name (tên unit), dir (thư mục chứa compose), file (tên file compose)
+compose_stacks: []

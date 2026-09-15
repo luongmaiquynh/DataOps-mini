@@ -12,3 +12,8 @@ local_hostnames:
   - alerts.dataops.test
   - flower.dataops.test
   - cadvisor.dataops.test
+
+# Các stack được systemd dựng lại khi máy khởi động
+compose_stacks:
+  - { name: "airflow", dir: "{{ app_dir }}/docker/dataops-vm1", file: "docker-compose.yml" }
+  - { name: "monitoring", dir: "{{ app_dir }}/docker/dataops-vm1", file: "docker-compose-monitoring.yml" }

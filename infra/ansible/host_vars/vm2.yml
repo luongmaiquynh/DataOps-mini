@@ -5,3 +5,7 @@ ufw_allow_ports:
   - { port: 6379, comment: "Redis" }
   - { port: 9000, comment: "MinIO API" }
   - { port: 9001, comment: "MinIO console" }
+
+# Các stack được systemd dựng lại khi máy khởi động
+compose_stacks:
+  - { name: "database", dir: "{{ app_dir }}/docker/dataops-vm2", file: "docker-compose.yml" }

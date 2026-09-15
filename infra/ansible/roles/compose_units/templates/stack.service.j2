@@ -1,0 +1,22 @@
+# {{ ansible_managed }}
+[Unit]
+Description=DataOps stack: {{ item.name }}
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={{ item.dir }}
+User={{ app_user }}
+Group={{ app_user }}
+# `up -d` dựng lại container nếu chúng đã bị xoá; nếu còn thì không đụng gì.
+ExecStart=/usr/bin/docker compose -f {{ item.file }} up -d
+# Dùng `stop` chứ không phải `down`: giữ lại container để lần sau khởi động
+# nhanh, và để restart policy của Docker vẫn có tác dụng.
+ExecStop=/usr/bin/docker compose -f {{ item.file }} stop
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

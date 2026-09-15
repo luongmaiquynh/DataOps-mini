@@ -16,6 +16,7 @@
         - "{{ app_dir }}/.env"
         - "{{ app_dir }}/docker/dataops-vm2/.env"
     - database
+    - compose_units
 
 - name: Airflow and monitoring (VM1)
   hosts: vm1
@@ -30,6 +31,7 @@
         - "{{ app_dir }}/docker/dataops-vm1/.env"
     - airflow
     - monitoring
+    - compose_units
 
 - name: Node exporter and backup (VM3)
   hosts: vm3
@@ -41,3 +43,4 @@
     - dotenv
     - node_exporter
     - backup
+    - compose_units
