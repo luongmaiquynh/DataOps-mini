@@ -52,7 +52,10 @@ services:
       GF_SERVER_ROOT_URL: https://grafana.dataops.test/
     volumes:
       - grafana_data:/var/lib/grafana
-      - ../../monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      # Mount trước đây trỏ thư mục dashboard vào chỗ dành cho file provisioning
+      # nên Grafana không nạp được gì. Nay tách đúng hai nơi.
+      - ../../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     # Không publish: chỉ truy cập qua Caddy (HTTPS 8443)
     depends_on:
       - prometheus

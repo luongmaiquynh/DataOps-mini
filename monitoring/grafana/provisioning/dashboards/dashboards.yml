@@ -1,0 +1,15 @@
+---
+apiVersion: 1
+
+providers:
+  - name: dataops
+    orgId: 1
+    folder: DataOps
+    type: file
+    disableDeletion: false
+    # Dashboard là file trong repo; sửa trong giao diện sẽ bị ghi đè khi nạp lại.
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

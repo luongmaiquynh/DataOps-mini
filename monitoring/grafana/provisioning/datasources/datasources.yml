@@ -1,0 +1,27 @@
+---
+# Datasource khai báo bằng file: dựng lại Grafana từ đầu là có ngay, không phải
+# bấm tay trong giao diện.
+#
+# uid đặt cố định để dashboard trong repo tham chiếu được ổn định. Nếu để Grafana
+# tự sinh uid thì mỗi lần dựng lại sẽ ra uid khác và panel mất datasource.
+apiVersion: 1
+
+# Không dùng deleteDatasources: Grafana coi "không tìm thấy" là lỗi nghiêm trọng
+# và từ chối khởi động ở lần chạy thứ hai, khi datasource đã bị xoá rồi.
+# Đã gây crash-loop thật ngày 15/09/2026.
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false

@@ -342,6 +342,25 @@ danh sách điểm yếu chưa xử lý.
 | RTO mất VM (còn OS) | ≈ 1 phút | Dựng lại VM3 hết 28 giây |
 | RTO mất VM (cài lại OS) | ≈ 30 phút | Phần cài Ubuntu là thao tác tay |
 
+## Dashboard Grafana
+
+Datasource và dashboard đều là file trong [monitoring/grafana/](monitoring/grafana/),
+Grafana tự nạp khi khởi động:
+
+| File | Nội dung |
+|---|---|
+| `provisioning/datasources/datasources.yml` | Prometheus và Loki, uid cố định |
+| `provisioning/dashboards/dashboards.yml` | Khai báo nguồn dashboard |
+| `dashboards/dataops-overview.json` | 10 panel: target UP, PostgreSQL, tuổi backup, kết quả kiểm chứng restore, CPU/RAM/đĩa theo máy |
+| `dashboards/node-exporter-full.json` | Dashboard cộng đồng, 31 panel |
+| `dashboards/cadvisor-exporter.json` | Dashboard cộng đồng, 10 panel |
+
+Sửa dashboard trong giao diện sẽ bị ghi đè (`allowUiUpdates: false`). Muốn giữ
+thay đổi thì export JSON và commit vào repo.
+
+**Đã kiểm chứng 15/09/2026:** xoá hẳn volume `grafana_data` rồi dựng lại — cả 2
+datasource và 3 dashboard tự trở về, truy vấn ra số liệu thật.
+
 ## Cảnh báo và runbook
 
 11 alert rule trong [monitoring/prometheus/alerts.yml](monitoring/prometheus/alerts.yml),

@@ -19,6 +19,8 @@ ENV/
 *.xlsx
 !sample_data/sample.csv
 !pipeline/tests/fixtures/*.csv
+# Dashboard và datasource Grafana là mã nguồn, không phải dữ liệu
+!monitoring/grafana/**/*.json
 
 # Thư mục runtime của Airflow (được mount vào container)
 logs/
