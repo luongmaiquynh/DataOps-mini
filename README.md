@@ -330,6 +330,22 @@ viện là tag đổi theo, không bao giờ chạy nhầm image cũ.
 ansible-playbook site.yml --limit vm1 --ask-become-pass
 ```
 
+## Diễn tập sự cố
+
+[docs/chaos-drills.md](docs/chaos-drills.md) ghi 12 kịch bản đã thực sự chạy trên
+hệ thống, kèm lệnh để lặp lại. Vài con số đáng chú ý:
+
+| Kịch bản | Kết quả |
+|---|---|
+| Tắt Alertmanager 17 phút | Email cảnh báo sau **14,5 phút** |
+| Xoá sạch container, image và code trên một máy | Dựng lại trong **28 giây** |
+| Khôi phục database từ backup | **2 giây**, 49 bảng đầy đủ |
+| Xoá volume Grafana | Dashboard tự trở về từ file trong repo |
+
+Ba lỗi thật được phát hiện **nhờ diễn tập**, khi hệ thống vẫn đang báo xanh: backup
+4 tháng không restore được, mount Grafana trỏ sai nên provisioning chưa từng chạy,
+và ngưỡng cảnh báo chứng chỉ sai khiến alert firing vĩnh viễn.
+
 ## Khôi phục thảm hoạ
 
 [docs/dr-plan.md](docs/dr-plan.md) nêu RPO, RTO và quy trình cho từng kịch bản, kèm

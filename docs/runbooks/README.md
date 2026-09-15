@@ -18,6 +18,7 @@ Alertmanager là tới.
 | [BackupMetricMissing](BackupMetricMissing.md) | warning | Không thấy metric backup |
 | [BackupRestoreTestStale](BackupRestoreTestStale.md) | warning | Lâu chưa kiểm chứng backup |
 | [TLSCertExpiringSoon](TLSCertExpiringSoon.md) | warning | Chứng chỉ TLS sắp hết hạn |
+| [Watchdog](Watchdog.md) | none | Nhịp tim — luôn firing; runbook dành cho khi nó NGỪNG |
 
 Mỗi runbook trả lời bốn câu hỏi: chuyện gì đang xảy ra, ảnh hưởng ra sao, kiểm tra
 bằng lệnh nào, và xử lý thế nào.

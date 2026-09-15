@@ -25,10 +25,12 @@ route:
       receiver: 'blackhole'
 {% endif %}
 
+    # Alert critical nhắc lại mỗi giờ thay vì 12 giờ như mặc định: sự cố nghiêm
+    # trọng chưa xử lý thì phải phiền đến khi nào xử lý xong.
     - match:
         severity: critical
       receiver: 'ntfy'
-      continue: true
+      repeat_interval: 1h
 
 receivers:
 {% if monitoring_dead_mans_switch_url %}
@@ -61,8 +63,20 @@ receivers:
 #         require_tls: true
 
 inhibit_rules:
-  - source_match:
-      severity: 'critical'
-    target_match:
-      severity: 'warning'
-    equal: ['alertname', 'job']
+  # Máy chết thì mọi cảnh báo khác về chính máy đó chỉ là hệ quả — nín chúng lại
+  # để người trực nhận một tin thay vì một tràng.
+  #
+  # Luật cũ đòi alert critical và warning phải TRÙNG TÊN mới nín, mà mỗi tên alert
+  # chỉ có một mức severity cố định, nên nó chưa từng có tác dụng lần nào.
+  - source_matchers:
+      - alertname = "InstanceDown"
+    target_matchers:
+      - severity =~ "warning|critical"
+    equal: ['instance']
+
+  # Database chết thì endpoint phụ thuộc nó hỏng theo, không cần báo riêng.
+  - source_matchers:
+      - alertname = "PostgreSQLDown"
+    target_matchers:
+      - alertname = "BackupStale"
+    equal: []
