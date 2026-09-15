@@ -1,8 +1,8 @@
 ---
 # VM3 — chỉ cần cho Prometheus trên VM1 scrape
-ufw_allow_ports:
+common_ufw_allow_ports:
   - { port: 9100, comment: "node-exporter" }
 
 # Các stack được systemd dựng lại khi máy khởi động
-compose_stacks:
+compose_units_stacks:
   - { name: "node-exporter", dir: "{{ app_dir }}/docker/dataops-vm3", file: "docker-compose.yml" }

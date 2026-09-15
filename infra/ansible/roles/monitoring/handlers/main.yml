@@ -1,0 +1,11 @@
+---
+# Alertmanager đọc cấu hình lúc khởi động nên đổi file phải khởi động lại nó.
+- name: Restart Alertmanager
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_compose_dir }}"
+    files:
+      - "{{ monitoring_compose_file }}"
+    services:
+      - alertmanager
+    state: restarted
+  become: false

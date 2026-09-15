@@ -1,0 +1,10 @@
+---
+# Collection cần cho playbook. Cài bằng:
+#   ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: community.docker
+    version: ">=5.0.0"
+  - name: community.general
+    version: ">=12.0.0"
+  - name: ansible.posix
+    version: ">=2.0.0"

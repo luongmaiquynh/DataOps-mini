@@ -45,12 +45,14 @@ write_metrics() {
         echo "dataops_restore_test_rows $rows"
     } > "$tmp" && mv "$tmp" "$METRIC_FILE"
 }
+# shellcheck disable=SC2329  # được gọi gián tiếp qua trap EXIT bên dưới
 cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 log "===== BẮT ĐẦU KIỂM CHỨNG BACKUP ====="
 
 # Chỉ lấy bản dump database; roles_*.sql.gz là file riêng, xử lý ở bước sau.
+# shellcheck disable=SC2012  # tên file do chính script backup sinh ra, không có ký tự lạ
 BACKUP_FILE=$(ls -t "$BACKUP_DIR"/backup_*.sql.gz 2>/dev/null | head -1)
 if [ -z "$BACKUP_FILE" ]; then
     log "[ERROR] Không tìm thấy file backup nào trong $BACKUP_DIR"
@@ -85,6 +87,7 @@ log "[OK] Đã dựng PostgreSQL tạm ($PG_IMAGE)"
 # --- Bước 3: restore định nghĩa role trước ---
 # Bản dump database chứa lệnh gán quyền sở hữu cho các role; nếu role chưa tồn
 # tại thì toàn bộ restore sẽ dừng với 'role ... does not exist'.
+# shellcheck disable=SC2012  # cùng lý do trên
 ROLES_FILE=$(ls -t "$BACKUP_DIR"/roles_*.sql.gz 2>/dev/null | head -1)
 if [ -n "$ROLES_FILE" ]; then
     zcat "$ROLES_FILE" | docker exec -i "$CONTAINER" psql -U postgres -q >/dev/null 2>&1

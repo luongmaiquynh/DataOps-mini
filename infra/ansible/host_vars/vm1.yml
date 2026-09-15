@@ -1,11 +1,11 @@
 ---
 # VM1 — mọi giao diện web đi qua Caddy, định tuyến theo tên miền trên cổng 443
-ufw_allow_ports:
+common_ufw_allow_ports:
   - { port: 80, comment: "HTTP (chỉ chuyển hướng sang HTTPS)" }
   - { port: 443, comment: "HTTPS qua Caddy" }
 
 # Tên miền nội bộ, dùng cho chính VM1 tự gọi (health check của Ansible)
-local_hostnames:
+common_local_hostnames:
   - grafana.dataops.test
   - airflow.dataops.test
   - prometheus.dataops.test
@@ -14,6 +14,6 @@ local_hostnames:
   - cadvisor.dataops.test
 
 # Các stack được systemd dựng lại khi máy khởi động
-compose_stacks:
+compose_units_stacks:
   - { name: "airflow", dir: "{{ app_dir }}/docker/dataops-vm1", file: "docker-compose.yml" }
   - { name: "monitoring", dir: "{{ app_dir }}/docker/dataops-vm1", file: "docker-compose-monitoring.yml" }

@@ -1,0 +1,22 @@
+---
+# Cấu hình vừa đủ chặt: bắt lỗi thật, bỏ qua những thứ chỉ là sở thích trình bày.
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+  comments:
+    min-spaces-from-content: 1
+  truthy:
+    allowed-values: ["true", "false", "yes", "no"]
+    # GitHub Actions bắt buộc dùng khoá `on:`, không phải giá trị boolean
+    check-keys: false
+  braces:
+    max-spaces-inside: 1
+  octal-values: enable
+
+ignore: |
+  .venv/
+  pipeline/.venv/
+  infra/ansible/group_vars/all/vault.yml

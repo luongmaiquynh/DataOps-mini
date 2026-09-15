@@ -25,7 +25,7 @@
 # node-exporter đọc thư mục này để phơi metric của các cron job ra Prometheus.
 - name: Create node-exporter textfile directory
   ansible.builtin.file:
-    path: "{{ textfile_dir }}"
+    path: "{{ backup_textfile_dir }}"
     state: directory
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
@@ -72,7 +72,7 @@
 - name: Install restore verification script
   ansible.builtin.copy:
     src: "{{ app_dir }}/backup/restore-test.sh"
-    dest: "{{ restore_test_script }}"
+    dest: "{{ backup_restore_test_script }}"
     remote_src: true
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
@@ -80,7 +80,7 @@
 
 - name: Ensure restore test log file exists
   ansible.builtin.file:
-    path: "{{ restore_test_log }}"
+    path: "{{ backup_restore_test_log }}"
     state: touch
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
@@ -93,7 +93,7 @@
     name: Weekly backup restore verification
     user: "{{ app_user }}"
     minute: "0"
-    hour: "{{ restore_test_hour }}"
-    weekday: "{{ restore_test_weekday }}"
-    job: "{{ restore_test_script }} >> {{ restore_test_log }} 2>&1"
+    hour: "{{ backup_restore_test_hour }}"
+    weekday: "{{ backup_restore_test_weekday }}"
+    job: "{{ backup_restore_test_script }} >> {{ backup_restore_test_log }} 2>&1"
     state: present

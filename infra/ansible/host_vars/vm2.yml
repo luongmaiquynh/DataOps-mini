@@ -1,6 +1,6 @@
 ---
 # VM2 — database và object storage, phục vụ VM1 và VM3
-ufw_allow_ports:
+common_ufw_allow_ports:
   - { port: 5432, comment: "PostgreSQL" }
   - { port: 6379, comment: "Redis" }
   - { port: 9000, comment: "MinIO API" }
@@ -8,5 +8,5 @@ ufw_allow_ports:
   - { port: 9100, comment: "node-exporter" }
 
 # Các stack được systemd dựng lại khi máy khởi động
-compose_stacks:
+compose_units_stacks:
   - { name: "database", dir: "{{ app_dir }}/docker/dataops-vm2", file: "docker-compose.yml" }

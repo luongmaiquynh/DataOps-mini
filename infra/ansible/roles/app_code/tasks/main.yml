@@ -12,7 +12,7 @@
 # private hay mạng ra ngoài của VM.
 - name: Sync repository from control node
   ansible.posix.synchronize:
-    src: "{{ repo_root }}/"
+    src: "{{ app_code_repo_root }}/"
     dest: "{{ app_dir }}/"
     archive: false
     recursive: true

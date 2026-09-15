@@ -9,18 +9,7 @@
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0644"
-  register: am_config
-
-- name: Restart Alertmanager when its configuration changes
-  community.docker.docker_compose_v2:
-    project_src: "{{ monitoring_compose_dir }}"
-    files:
-      - "{{ monitoring_compose_file }}"
-    services:
-      - alertmanager
-    state: restarted
-  become: false
-  when: am_config.changed
+  notify: Restart Alertmanager
 
 - name: Deploy monitoring stack
   community.docker.docker_compose_v2:
@@ -45,27 +34,27 @@
     url: https://prometheus.dataops.test/-/ready
     validate_certs: false
     status_code: 200
-  register: prom_ready
+  register: monitoring_prom_ready
   retries: 18
   delay: 5
-  until: prom_ready.status is defined and prom_ready.status == 200
+  until: monitoring_prom_ready.status is defined and monitoring_prom_ready.status == 200
 
 - name: Wait for Grafana to answer through the proxy
   ansible.builtin.uri:
     url: https://grafana.dataops.test/api/health
     validate_certs: false
     status_code: 200
-  register: grafana_ready
+  register: monitoring_grafana_ready
   retries: 18
   delay: 5
-  until: grafana_ready.status is defined and grafana_ready.status == 200
+  until: monitoring_grafana_ready.status is defined and monitoring_grafana_ready.status == 200
 
 - name: Wait for Airflow to answer through the proxy
   ansible.builtin.uri:
     url: https://airflow.dataops.test/health
     validate_certs: false
     status_code: 200
-  register: airflow_proxy
+  register: monitoring_airflow_proxy
   retries: 18
   delay: 5
-  until: airflow_proxy.status is defined and airflow_proxy.status == 200
+  until: monitoring_airflow_proxy.status is defined and monitoring_airflow_proxy.status == 200

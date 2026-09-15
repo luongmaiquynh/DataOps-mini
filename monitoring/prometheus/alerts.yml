@@ -1,3 +1,4 @@
+---
 groups:
   - name: infrastructure
     rules:
@@ -84,7 +85,8 @@ groups:
         annotations:
           summary: "Backup PostgreSQL đã quá hạn"
           runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupStale.md"
-          description: "Bản backup thành công gần nhất cách đây {{ $value | humanizeDuration }}."
+          description: >-
+            Bản backup thành công gần nhất cách đây {{ $value | humanizeDuration }}.
 
       # Không có metric nào = cron không chạy, hoặc node-exporter mất textfile.
       - alert: BackupMetricMissing
@@ -118,7 +120,8 @@ groups:
         annotations:
           summary: "Lâu rồi chưa kiểm chứng backup"
           runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupRestoreTestStale.md"
-          description: "Lần kiểm chứng restore gần nhất cách đây {{ $value | humanizeDuration }}."
+          description: >-
+            Lần kiểm chứng restore gần nhất cách đây {{ $value | humanizeDuration }}.
 
   - name: watchdog
     rules:

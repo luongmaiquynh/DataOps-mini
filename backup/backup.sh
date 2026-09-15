@@ -91,9 +91,9 @@ PGPASSWORD="$POSTGRES_PASSWORD" "$PG_DUMP" \
 DUMP_EXIT=${PIPESTATUS[0]}
 
 # --- Kiểm tra kết quả ---
-if [ $DUMP_EXIT -eq 0 ] && [ -s "$BACKUP_FILE" ]; then
+if [ "$DUMP_EXIT" -eq 0 ] && [ -s "$BACKUP_FILE" ]; then
     FILE_SIZE=$(du -sh "$BACKUP_FILE" | cut -f1)
-    echo "$LOG_PREFIX [OK] Backup thành công: $(basename $BACKUP_FILE) ($FILE_SIZE)"
+    echo "$LOG_PREFIX [OK] Backup thành công: $(basename "$BACKUP_FILE") ($FILE_SIZE)"
 else
     echo "$LOG_PREFIX [ERROR] Backup thất bại! Xóa file lỗi..."
     rm -f "$BACKUP_FILE"
@@ -111,7 +111,7 @@ PGPASSWORD="$POSTGRES_PASSWORD" "$PG_DUMPALL" \
     --roles-only \
     | gzip > "$ROLES_FILE"
 
-if [ ${PIPESTATUS[0]} -eq 0 ] && [ -s "$ROLES_FILE" ]; then
+if [ "${PIPESTATUS[0]}" -eq 0 ] && [ -s "$ROLES_FILE" ]; then
     echo "$LOG_PREFIX [OK] Đã dump định nghĩa role: $(basename "$ROLES_FILE")"
 else
     echo "$LOG_PREFIX [ERROR] Dump role thất bại — bản backup sẽ không restore được vào cụm mới"
@@ -121,7 +121,7 @@ else
 fi
 
 # --- Xóa backup cũ hơn RETENTION_DAYS ngày ---
-DELETED=$(find "$BACKUP_DIR" -name "*.sql.gz" -mtime +$RETENTION_DAYS -print -delete | wc -l)
+DELETED=$(find "$BACKUP_DIR" -name "*.sql.gz" -mtime "+$RETENTION_DAYS" -print -delete | wc -l)
 if [ "$DELETED" -gt 0 ]; then
     echo "$LOG_PREFIX [OK] Đã xóa $DELETED file backup cũ hơn $RETENTION_DAYS ngày"
 fi

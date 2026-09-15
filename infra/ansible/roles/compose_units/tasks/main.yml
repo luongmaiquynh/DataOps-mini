@@ -10,7 +10,7 @@
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ compose_stacks }}"
+  loop: "{{ compose_units_stacks }}"
   loop_control:
     label: "dataops-{{ item.name }}.service"
   notify: Reload systemd
@@ -20,6 +20,6 @@
     name: "dataops-{{ item.name }}.service"
     enabled: true
     daemon_reload: true
-  loop: "{{ compose_stacks }}"
+  loop: "{{ compose_units_stacks }}"
   loop_control:
     label: "dataops-{{ item.name }}.service"

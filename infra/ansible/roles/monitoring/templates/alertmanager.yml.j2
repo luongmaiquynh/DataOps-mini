@@ -10,7 +10,7 @@ route:
   repeat_interval: 12h
   receiver: 'ntfy'
   routes:
-{% if dead_mans_switch_url %}
+{% if monitoring_dead_mans_switch_url %}
     # Nhịp tim: gửi lại mỗi 5 phút, không gom nhóm, không lẫn với alert thật.
     - match:
         alertname: Watchdog
@@ -31,12 +31,12 @@ route:
       continue: true
 
 receivers:
-{% if dead_mans_switch_url %}
+{% if monitoring_dead_mans_switch_url %}
   # Dịch vụ bên ngoài nhận nhịp tim. Nó báo động khi NGỪNG nhận được tín hiệu —
-  # ngược với alert thường. Đặt URL vào dead_mans_switch_url trong group_vars.
+  # ngược với alert thường. Đặt URL vào monitoring_dead_mans_switch_url trong group_vars.
   - name: 'deadmansswitch'
     webhook_configs:
-      - url: '{{ dead_mans_switch_url }}'
+      - url: '{{ monitoring_dead_mans_switch_url }}'
         send_resolved: false
 {% else %}
   # Receiver rỗng: nhịp tim bị nuốt cho tới khi cấu hình dịch vụ bên ngoài.

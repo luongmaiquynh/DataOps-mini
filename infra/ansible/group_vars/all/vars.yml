@@ -15,7 +15,7 @@ env_minio_bucket: 'dataops-lake'
 env_grafana_admin_user: 'admin'
 
 # URL nhip tim cho dead man's switch (healthchecks.io) — giá trị nằm trong vault
-dead_mans_switch_url: "{{ vault_dead_mans_switch_url }}"
+monitoring_dead_mans_switch_url: "{{ vault_dead_mans_switch_url }}"
 
 # Tag image Airflow mang hash của requirements.txt: đổi thư viện là tag đổi theo,
 # nên không bao giờ chạy nhầm image cũ.

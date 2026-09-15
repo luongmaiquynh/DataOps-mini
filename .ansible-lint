@@ -1,0 +1,12 @@
+---
+# vault.yml đã mã hoá nên lint không đọc được nội dung — bỏ qua là đúng.
+exclude_paths:
+  - infra/ansible/group_vars/all/vault.yml
+  - .venv/
+  - pipeline/.venv/
+
+skip_list:
+  # Tên task viết tiếng Việt, không theo quy ước hoa/thường tiếng Anh
+  - name[casing]
+
+offline: true

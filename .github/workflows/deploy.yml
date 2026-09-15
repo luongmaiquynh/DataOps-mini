@@ -1,11 +1,17 @@
+---
 name: CD – Deploy to VM1
 
+# Chỉ chạy SAU KHI CI xong, và chỉ khi CI xanh. Trước đây hai workflow chạy song
+# song nên một commit làm hỏng test vẫn được đẩy lên VM1.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI – Lint & Test"]
+    types: [completed]
     branches: [main]
 
 jobs:
   deploy-vm1:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: self-hosted
     environment: production
 
@@ -22,6 +28,7 @@ jobs:
           echo "Deploy DAGs completed at $(date)"
 
   deploy-monitoring:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: self-hosted
     environment: production
     needs: deploy-vm1

@@ -421,12 +421,24 @@ dòng. Đã thử với một file backup cố tình làm hỏng để xác nh�
 ## CI/CD
 
 ### CI (GitHub Actions)
-Tự động chạy khi push lên nhánh `main`:
-- `flake8` lint check
-- `pytest` unit tests (66 tests)
+
+Chạy khi push lên `main` hoặc `develop`, và với mọi pull request. Hai job song song:
+
+| Job | Kiểm tra |
+|---|---|
+| **Python** | `flake8` và 66 unit test |
+| **Infrastructure** | `yamllint`, `ansible-lint` (profile production), `shellcheck`, `hadolint`, `docker compose config` cho cả 4 file, `promtool check rules` cho alert |
+
+Chạy trước ở máy để khỏi phải sửa qua CI:
+
+```bash
+yamllint . && shellcheck backup/*.sh && hadolint docker/airflow/Dockerfile
+cd infra/ansible && ansible-lint
+```
 
 ### CD (GitHub Actions)
-Deploy lên VM1 khi push `main` — dùng **self-hosted runner** cài trên VM1:
+
+Chỉ chạy **sau khi CI xanh** (`workflow_run`), trên **self-hosted runner** cài tại VM1:
 - Không cần GitHub Secrets SSH (runner chạy trực tiếp trên VM1)
 - Runner được cài như systemd service, tự khởi động khi VM1 reboot
 - Kiểm tra runner: `sudo systemctl status actions.runner.*.service`

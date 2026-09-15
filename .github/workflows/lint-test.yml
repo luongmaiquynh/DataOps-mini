@@ -1,3 +1,4 @@
+---
 name: CI – Lint & Test
 
 on:
@@ -7,9 +8,9 @@ on:
     branches: [main]
 
 jobs:
-  lint-test:
+  python:
+    name: Python lint & test
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,10 +28,78 @@ jobs:
                       flake8 pytest pytest-cov
 
       - name: Lint with flake8
-        run: |
-          flake8 pipeline/etl/ pipeline/dags/ pipeline/tests/ --statistics
+        run: flake8 pipeline/etl/ pipeline/dags/ pipeline/tests/ --statistics
 
       - name: Run unit tests
+        run: cd pipeline && pytest tests/ -v --tb=short
+
+  infra:
+    name: Infrastructure lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install lint tools
         run: |
-          cd pipeline
-          pytest tests/ -v --tb=short
+          pip install --upgrade pip
+          pip install yamllint ansible-lint
+          ansible-galaxy collection install -r infra/ansible/requirements.yml
+
+      - name: Lint YAML
+        run: yamllint .
+
+      - name: Lint Ansible
+        run: cd infra/ansible && ansible-lint
+
+      - name: Lint shell scripts
+        run: shellcheck backup/*.sh
+
+      - name: Lint Dockerfile
+        run: docker run --rm -i hadolint/hadolint:2.15.1 < docker/airflow/Dockerfile
+
+      # Compose dùng cú pháp ${BIEN:?...} nên phải có đủ biến mới kiểm tra được.
+      # Giá trị ở đây chỉ để kiểm tra cú pháp, không phải secret thật.
+      - name: Validate Docker Compose files
+        run: |
+          cat > /tmp/ci.env <<'ENVEOF'
+          POSTGRES_USER=ci
+          POSTGRES_PASSWORD=ci
+          POSTGRES_DB=ci
+          POSTGRES_HOST=127.0.0.1
+          POSTGRES_PORT=5432
+          REDIS_HOST=127.0.0.1
+          REDIS_PORT=6379
+          REDIS_PASSWORD=ci
+          MINIO_ROOT_USER=ci
+          MINIO_ROOT_PASSWORD=ci
+          MINIO_HOST=127.0.0.1
+          MINIO_PORT=9000
+          MINIO_BUCKET=ci
+          AIRFLOW_IMAGE=apache/airflow:2.7.1
+          AIRFLOW__CORE__FERNET_KEY=ci
+          AIRFLOW__WEBSERVER__SECRET_KEY=ci
+          AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://ci:ci@127.0.0.1:5432/ci
+          AIRFLOW__CELERY__BROKER_URL=redis://:ci@127.0.0.1:6379/0
+          AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://ci:ci@127.0.0.1:5432/ci
+          GRAFANA_ADMIN_USER=ci
+          GRAFANA_ADMIN_PASSWORD=ci
+          ENVEOF
+          for f in docker/dataops-vm1/docker-compose.yml \
+                   docker/dataops-vm1/docker-compose-monitoring.yml \
+                   docker/dataops-vm2/docker-compose.yml \
+                   docker/dataops-vm3/docker-compose.yml; do
+            echo "kiểm tra $f"
+            docker compose --env-file /tmp/ci.env -f "$f" config -q
+          done
+
+      - name: Validate Prometheus rules
+        run: |
+          docker run --rm -v "$PWD/monitoring/prometheus:/cfg" \
+            prom/prometheus:v3.11.3 promtool check rules /cfg/alerts.yml
