@@ -313,6 +313,18 @@ sudo sh -c 'cat >> /etc/hosts' <<'EOF'
 EOF
 ```
 
+## Khôi phục thảm hoạ
+
+[docs/dr-plan.md](docs/dr-plan.md) nêu RPO, RTO và quy trình cho từng kịch bản, kèm
+danh sách điểm yếu chưa xử lý.
+
+| Chỉ số | Cam kết | Đo được |
+|---|---|---|
+| RPO | 24 giờ | Backup 2:00 sáng hàng ngày |
+| RTO mất database | ≈ 5 phút | Phần restore mất 2 giây |
+| RTO mất VM (còn OS) | ≈ 1 phút | Dựng lại VM3 hết 28 giây |
+| RTO mất VM (cài lại OS) | ≈ 30 phút | Phần cài Ubuntu là thao tác tay |
+
 ## Cảnh báo và runbook
 
 11 alert rule trong [monitoring/prometheus/alerts.yml](monitoring/prometheus/alerts.yml),
