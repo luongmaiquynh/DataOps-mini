@@ -1,0 +1,70 @@
+---
+# Sau khi ghim version cho toàn bộ image, cần một cơ chế nâng cấp có kiểm soát:
+# Dependabot mở pull request khi có bản mới, CI chạy trên PR đó, xanh mới merge.
+#
+# Chọn Dependabot thay vì Renovate vì nó chạy sẵn trên GitHub, không phải cài
+# thêm app qua giao diện web.
+version: 2
+
+updates:
+  # Image trong Dockerfile của Airflow
+  - package-ecosystem: docker
+    directory: /docker/airflow
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Image trong các file compose
+  - package-ecosystem: docker-compose
+    directory: /docker/dataops-vm1
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker-compose
+    directory: /docker/dataops-vm2
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker-compose
+    directory: /docker/dataops-vm3
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Thư viện Python cài vào image Airflow
+  - package-ecosystem: pip
+    directory: /docker/airflow
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies, python]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Action dùng trong workflow
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: "chore(deps)"

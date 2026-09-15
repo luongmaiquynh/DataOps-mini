@@ -330,6 +330,22 @@ viện là tag đổi theo, không bao giờ chạy nhầm image cũ.
 ansible-playbook site.yml --limit vm1 --ask-become-pass
 ```
 
+## Postmortem
+
+[docs/postmortems/](docs/postmortems/) ghi lại bốn sự cố thật, mỗi cái theo cùng
+cấu trúc: chuyện gì xảy ra, phát hiện bằng cách nào, nguyên nhân gốc, đã sửa ra
+sao, và làm gì để không lặp lại.
+
+| Sự cố | Thời gian ẩn |
+|---|---|
+| Backup chạy 4 tháng nhưng không restore được | 4 tháng |
+| Prometheus đọc file cấu hình cũ do Docker mount theo inode | Vài giờ |
+| CD hỏng âm thầm qua 3 lần push | 3 lần push |
+| Ba VM chết dần vì cấp phát RAM vượt mức | Vài giờ |
+
+Điểm chung: cả bốn đều thuộc loại **hệ thống báo xanh trong khi đã hỏng**. Không
+cái nào tự báo lỗi.
+
 ## Diễn tập sự cố
 
 [docs/chaos-drills.md](docs/chaos-drills.md) ghi 12 kịch bản đã thực sự chạy trên
