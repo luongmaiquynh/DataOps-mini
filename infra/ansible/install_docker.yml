@@ -1,0 +1,78 @@
+---
+# Cài Docker Engine + Compose plugin trên cả 3 VM (Ubuntu 22.04 ARM64).
+# Chạy: cd infra/ansible && ansible-playbook install_docker.yml --ask-become-pass
+# Ghi chú: GĐ 1.1 sẽ chuyển file này thành role `docker`.
+- name: Install Docker Engine on all VMs
+  hosts: all
+  become: true
+
+  vars:
+    docker_packages:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin      # bắt buộc, nếu thiếu thì không có lệnh `docker compose`
+    docker_users:
+      - dataops
+
+  tasks:
+    - name: Install prerequisites
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Create keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    # Playbook cũ đã thêm repo sai (amd64 + focal) qua apt_key; gỡ đi để
+    # apt không có hai khai báo chồng nhau cho cùng một nguồn.
+    - name: Remove legacy Docker repository entry
+      ansible.builtin.apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: absent
+
+    # Kiến trúc và tên bản phát hành lấy từ fact của chính máy đích,
+    # không hardcode, để chạy được trên cả ARM64 lẫn x86 và mọi bản Ubuntu.
+    - name: Add Docker repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}
+          signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/ubuntu
+          {{ ansible_facts['distribution_release'] }} stable
+        filename: docker
+        state: present
+
+    - name: Install Docker packages
+      ansible.builtin.apt:
+        name: "{{ docker_packages }}"
+        state: present
+        update_cache: true
+
+    - name: Ensure Docker service is running and enabled
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add users to docker group
+      ansible.builtin.user:
+        name: "{{ item }}"
+        groups: docker
+        append: true
+      loop: "{{ docker_users }}"

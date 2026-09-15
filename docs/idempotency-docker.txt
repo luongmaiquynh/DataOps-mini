@@ -1,0 +1,53 @@
+
+PLAY [Install Docker Engine on all VMs] ****************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [vm2]
+ok: [vm1]
+ok: [vm3]
+
+TASK [Install prerequisites] ***************************************************
+ok: [vm2]
+ok: [vm3]
+ok: [vm1]
+
+TASK [Create keyring directory] ************************************************
+ok: [vm2]
+ok: [vm1]
+ok: [vm3]
+
+TASK [Download Docker GPG key] *************************************************
+ok: [vm1]
+ok: [vm2]
+ok: [vm3]
+
+TASK [Remove legacy Docker repository entry] ***********************************
+ok: [vm2]
+ok: [vm1]
+ok: [vm3]
+
+TASK [Add Docker repository] ***************************************************
+ok: [vm1]
+ok: [vm2]
+ok: [vm3]
+
+TASK [Install Docker packages] *************************************************
+ok: [vm3]
+ok: [vm2]
+ok: [vm1]
+
+TASK [Ensure Docker service is running and enabled] ****************************
+ok: [vm3]
+ok: [vm1]
+ok: [vm2]
+
+TASK [Add users to docker group] ***********************************************
+ok: [vm2] => (item=dataops)
+ok: [vm1] => (item=dataops)
+ok: [vm3] => (item=dataops)
+
+PLAY RECAP *********************************************************************
+vm1                        : ok=9    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+vm2                        : ok=9    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+vm3                        : ok=9    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
