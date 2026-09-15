@@ -1,0 +1,46 @@
+# Reverse proxy đặt trước mọi giao diện web của VM1.
+# Định tuyến theo tên miền nên tất cả dùng chung cổng 443, URL không có số cổng.
+#
+# Đuôi .test được RFC 6761 dành riêng cho môi trường thử nghiệm nên không bao
+# giờ đụng tên miền thật. Không dùng .local vì macOS dành nó cho mDNS.
+#
+# `tls internal` dùng CA nội bộ do Caddy tự sinh và tự gia hạn. Trình duyệt sẽ
+# cảnh báo vì không biết CA này — đã chấp nhận cho môi trường lab.
+#
+# Máy muốn truy cập phải trỏ các tên này về 192.168.64.2 trong /etc/hosts.
+
+(common) {
+	tls internal
+	encode gzip
+	header -Server
+}
+
+grafana.dataops.test {
+	import common
+	reverse_proxy grafana:3000
+}
+
+airflow.dataops.test {
+	import common
+	reverse_proxy airflow_webserver:8080
+}
+
+prometheus.dataops.test {
+	import common
+	reverse_proxy prometheus:9090
+}
+
+alerts.dataops.test {
+	import common
+	reverse_proxy alertmanager:9093
+}
+
+flower.dataops.test {
+	import common
+	reverse_proxy airflow_flower:5555
+}
+
+cadvisor.dataops.test {
+	import common
+	reverse_proxy cadvisor:8080
+}

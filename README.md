@@ -254,8 +254,9 @@ pytest tests/ -v
 | Secret | Ansible Vault (mật khẩu vault đọc từ `~/.ansible/vault_pass_dataops`, ngoài repo); `.env` sinh từ template, mỗi máy chỉ nhận phần nó cần |
 | Redis | Bắt buộc xác thực bằng `requirepass`; kết nối không mật khẩu bị từ chối với `NOAUTH` |
 | Network | VM2 tách network riêng `data-net` |
+| TLS | Caddy reverse proxy, chứng chỉ do CA nội bộ cấp và tự gia hạn; HTTP tự chuyển sang HTTPS |
 | Lịch sử git | Đã dọn bằng `git filter-repo` (15/09/2026); toàn bộ mật khẩu từng xuất hiện đều đã được thay thế trước đó |
-| Cổng mở | VM1: 22, 8080, 5555, 3000, 9090, 9093, 8081 · VM2: 22, 5432, 6379, 9000, 9001 · VM3: 22, 9100 |
+| Cổng mở | VM1: 22, 80, 443 · VM2: 22, 5432, 6379, 9000, 9001 · VM3: 22, 9100 |
 
 **Lưu ý đã kiểm chứng:** UFW không chặn được cổng do Docker publish vì Docker
 chèn luật iptables riêng. Vì vậy các service chỉ cần truy cập nội bộ
@@ -264,14 +265,30 @@ tường lửa.
 
 ## Monitoring
 
-| Service | URL | Mô tả |
+| Giao diện | Địa chỉ | Mô tả |
 |---|---|---|
-| Airflow UI | http://192.168.64.2:8080 | Quản lý DAGs |
-| Grafana | http://192.168.64.2:3000 | Dashboard metrics (admin / ***REMOVED***) |
-| Prometheus | http://192.168.64.2:9090 | Metrics scraping (5 targets UP) |
-| Alertmanager | http://192.168.64.2:9093 | Alert routing |
-| Flower | http://192.168.64.2:5555 | Celery worker monitor |
-| MinIO Console | http://192.168.64.3:9001 | Object storage UI |
+| Airflow | https://airflow.dataops.test | Quản lý DAGs |
+| Grafana | https://grafana.dataops.test | Dashboard metrics và log |
+| Prometheus | https://prometheus.dataops.test | Metrics, alert rules |
+| Alertmanager | https://alerts.dataops.test | Alert đang firing |
+| Flower | https://flower.dataops.test | Monitor Celery worker |
+| cAdvisor | https://cadvisor.dataops.test | Metrics container |
+| MinIO Console | http://192.168.64.3:9001 | Object storage UI (chưa đặt sau proxy) |
+
+Mọi giao diện trên VM1 đi qua Caddy bằng HTTPS trên cổng 443; các cổng HTTP cũ
+(3000, 8080, 9090, 9093, 8081, 5555) đã được gỡ khỏi compose. Chứng chỉ do CA
+nội bộ của Caddy cấp nên trình duyệt sẽ cảnh báo ở lần đầu.
+
+Máy muốn truy cập cần trỏ tên miền về VM1:
+
+```bash
+sudo sh -c 'cat >> /etc/hosts' <<'EOF'
+
+# Mini DataOps Platform (VM1)
+192.168.64.2  grafana.dataops.test airflow.dataops.test prometheus.dataops.test
+192.168.64.2  alerts.dataops.test flower.dataops.test cadvisor.dataops.test
+EOF
+```
 
 ## Backup
 

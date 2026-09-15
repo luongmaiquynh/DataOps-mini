@@ -75,3 +75,12 @@
     validate: /usr/sbin/sshd -t -f %s
   when: ssh_hardening_enabled
   notify: Reload sshd
+
+# Để chính máy này gọi được các tên miền nội bộ (health check chạy trên VM1).
+- name: Map internal hostnames to loopback
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^127\\.0\\.0\\.1\\s+{{ item }}$"
+    line: "127.0.0.1 {{ item }}"
+    state: present
+  loop: "{{ local_hostnames }}"

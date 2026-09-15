@@ -23,6 +23,9 @@ x-airflow-common: &airflow-common
     MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD chua duoc dat}
     MINIO_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET chua duoc dat}
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    # Chạy sau reverse proxy: cần biết URL thật để sinh link đúng
+    AIRFLOW__WEBSERVER__BASE_URL: https://airflow.dataops.test
+    AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "true"
     _PIP_ADDITIONAL_REQUIREMENTS: "boto3==1.34.0 psycopg2-binary==2.9.9 pandas==2.0.3 requests==2.31.0 sqlalchemy==1.4.52"
   volumes:
     - ../../pipeline/dags:/opt/airflow/dags
@@ -46,8 +49,7 @@ services:
     <<: *airflow-common
     container_name: airflow_webserver
     command: webserver
-    ports:
-      - "8080:8080"
+    # Không publish: chỉ truy cập qua Caddy (HTTPS 8444)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -68,8 +70,7 @@ services:
     <<: *airflow-common
     container_name: airflow_flower
     command: celery flower
-    ports:
-      - "5555:5555"
+    # Không publish: chỉ truy cập qua Caddy (HTTPS 8447)
 
 networks:
   default:

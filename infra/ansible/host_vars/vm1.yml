@@ -1,9 +1,14 @@
 ---
-# VM1 — giao diện quản trị, truy cập từ máy Mac
+# VM1 — mọi giao diện web đi qua Caddy, định tuyến theo tên miền trên cổng 443
 ufw_allow_ports:
-  - { port: 8080, comment: "Airflow webserver" }
-  - { port: 5555, comment: "Celery Flower" }
-  - { port: 3000, comment: "Grafana" }
-  - { port: 9090, comment: "Prometheus" }
-  - { port: 9093, comment: "Alertmanager" }
-  - { port: 8081, comment: "cAdvisor" }
+  - { port: 80, comment: "HTTP (chỉ chuyển hướng sang HTTPS)" }
+  - { port: 443, comment: "HTTPS qua Caddy" }
+
+# Tên miền nội bộ, dùng cho chính VM1 tự gọi (health check của Ansible)
+local_hostnames:
+  - grafana.dataops.test
+  - airflow.dataops.test
+  - prometheus.dataops.test
+  - alerts.dataops.test
+  - flower.dataops.test
+  - cadvisor.dataops.test

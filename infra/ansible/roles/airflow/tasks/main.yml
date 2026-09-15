@@ -18,12 +18,14 @@
     state: present
   become: false
 
-# Container cài thêm gói Python lúc khởi động nên webserver cần vài phút.
+# Kiểm tra từ bên trong container: cổng 8080 không còn publish ra host, và
+# Caddy (nằm ở stack monitoring, triển khai sau) chưa chắc đã chạy ở bước này.
 - name: Wait for Airflow webserver to become healthy
-  ansible.builtin.uri:
-    url: "{{ airflow_health_url }}"
-    status_code: 200
+  ansible.builtin.command:
+    cmd: docker exec airflow_webserver curl -fsS -o /dev/null http://localhost:8080/health
+  become: false
   register: airflow_health
+  changed_when: false
   retries: 30
   delay: 10
-  until: airflow_health.status is defined and airflow_health.status == 200
+  until: airflow_health.rc == 0

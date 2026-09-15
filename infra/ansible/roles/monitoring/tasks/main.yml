@@ -7,20 +7,34 @@
     state: present
   become: false
 
-- name: Wait for Prometheus to answer
+# Kiểm tra qua chính Caddy: xác nhận cả reverse proxy lẫn dịch vụ phía sau.
+# validate_certs tắt vì đây là chứng chỉ do CA nội bộ của Caddy cấp.
+- name: Wait for Prometheus to answer through the proxy
   ansible.builtin.uri:
-    url: http://localhost:9090/-/ready
+    url: https://prometheus.dataops.test/-/ready
+    validate_certs: false
     status_code: 200
   register: prom_ready
-  retries: 12
+  retries: 18
   delay: 5
   until: prom_ready.status is defined and prom_ready.status == 200
 
-- name: Wait for Grafana to answer
+- name: Wait for Grafana to answer through the proxy
   ansible.builtin.uri:
-    url: http://localhost:3000/api/health
+    url: https://grafana.dataops.test/api/health
+    validate_certs: false
     status_code: 200
   register: grafana_ready
-  retries: 12
+  retries: 18
   delay: 5
   until: grafana_ready.status is defined and grafana_ready.status == 200
+
+- name: Wait for Airflow to answer through the proxy
+  ansible.builtin.uri:
+    url: https://airflow.dataops.test/health
+    validate_certs: false
+    status_code: 200
+  register: airflow_proxy
+  retries: 18
+  delay: 5
+  until: airflow_proxy.status is defined and airflow_proxy.status == 200
