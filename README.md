@@ -245,6 +245,20 @@ pytest tests/ -v
 | `test_dag_ingest_csv.py` | 9 | task_extract/transform/quality/load (CSV DAG) |
 | `test_dag_ingest_api.py` | 7 | task_extract/transform/quality/load (API DAG) |
 
+## Bảo mật
+
+| Lớp | Cấu hình |
+|---|---|
+| SSH | Chỉ nhận khoá (`PasswordAuthentication no`), cấm đăng nhập root, fail2ban chặn 1 giờ sau 5 lần sai |
+| Tường lửa | UFW khai báo trong `infra/ansible/host_vars/`, mặc định chặn mọi kết nối vào |
+| Secret | Ansible Vault; `.env` sinh từ template, mỗi máy chỉ nhận phần nó cần |
+| Cổng mở | VM1: 22, 8080, 5555, 3000, 9090, 9093, 8081 · VM2: 22, 5432, 6379, 9000, 9001 · VM3: 22, 9100 |
+
+**Lưu ý đã kiểm chứng:** UFW không chặn được cổng do Docker publish vì Docker
+chèn luật iptables riêng. Vì vậy các service chỉ cần truy cập nội bộ
+(node-exporter, postgres-exporter, Loki) đã được bỏ `ports:` thay vì dựa vào
+tường lửa.
+
 ## Monitoring
 
 | Service | URL | Mô tả |

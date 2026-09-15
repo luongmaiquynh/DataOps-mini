@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+# Đặt tên bắt đầu bằng 00 để được đọc TRƯỚC 50-cloud-init.conf:
+# sshd lấy giá trị xuất hiện đầu tiên, nên file này thắng.
+PasswordAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no

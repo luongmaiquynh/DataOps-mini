@@ -1,0 +1,9 @@
+---
+# VM1 — giao diện quản trị, truy cập từ máy Mac
+ufw_allow_ports:
+  - { port: 8080, comment: "Airflow webserver" }
+  - { port: 5555, comment: "Celery Flower" }
+  - { port: 3000, comment: "Grafana" }
+  - { port: 9090, comment: "Prometheus" }
+  - { port: 9093, comment: "Alertmanager" }
+  - { port: 8081, comment: "cAdvisor" }

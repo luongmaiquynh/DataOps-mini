@@ -1,0 +1,4 @@
+---
+# Cổng mở thêm ngoài SSH — khai báo riêng cho từng máy trong host_vars/
+ufw_allow_ports: []
+ssh_hardening_enabled: true

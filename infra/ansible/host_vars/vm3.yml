@@ -1,0 +1,4 @@
+---
+# VM3 — chỉ cần cho Prometheus trên VM1 scrape
+ufw_allow_ports:
+  - { port: 9100, comment: "node-exporter" }

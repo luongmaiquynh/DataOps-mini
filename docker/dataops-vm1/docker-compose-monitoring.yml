@@ -51,8 +51,7 @@ services:
       - ../../monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
-    ports:
-      - "3100:3100"
+    # Không publish ra host — Grafana và Promtail gọi qua network nội bộ.
     networks:
       - monitoring
 
@@ -99,8 +98,9 @@ services:
       - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    ports:
-      - "9100:9100"
+    # Không publish ra host: Prometheus scrape qua tên service trong network
+    # monitoring. Publish ra host sẽ mở cổng cho cả mạng LAN vì Docker đi
+    # vòng qua UFW.
     networks:
       - monitoring
 
@@ -110,8 +110,7 @@ services:
     restart: always
     environment:
       DATA_SOURCE_NAME: "postgresql://dataops:***REMOVED***@192.168.64.3:5432/dataops_db?sslmode=disable"
-    ports:
-      - "9187:9187"
+    # Không publish ra host — chỉ Prometheus trong cùng network cần truy cập.
     networks:
       - monitoring
 
