@@ -181,6 +181,26 @@ cd ~/dataops/docker/dataops-vm3
 docker compose up -d
 ```
 
+## Khả năng dựng lại
+
+VM3 đã được kiểm chứng bằng cách xoá sạch container, image và thư mục code, rồi
+dựng lại hoàn toàn bằng một lệnh:
+
+```bash
+time ansible-playbook site.yml --limit vm3 --ask-become-pass --ask-vault-pass
+```
+
+| Chỉ số | Kết quả (15/09/2026) |
+|---|---|
+| Thời gian dựng lại toàn bộ dịch vụ | **28 giây** |
+| Số task | 21, `changed=4`, `failed=0` |
+| Chạy lần hai | `changed=0` trên cả 3 VM |
+
+Phép đo bắt đầu từ máy **đã có OS và Docker**; chưa tính thời gian cài Ubuntu và
+cài Docker Engine. Sau khi dựng lại, node-exporter chạy đúng version đã ghim,
+`.env` được sinh từ template, script backup và cron 2:00 được đặt lại, và
+Prometheus nhận lại target `node-exporter-vm3`.
+
 ## Data Pipeline
 
 ### DAGs
