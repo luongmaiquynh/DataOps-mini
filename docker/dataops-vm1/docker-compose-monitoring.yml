@@ -81,6 +81,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../../monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - promtail_positions:/var/lib/promtail
     command: -config.file=/etc/promtail/config.yml
     environment:
       - LOKI_URL=http://loki:3100/loki/api/v1/push
@@ -147,6 +148,7 @@ services:
       - monitoring
 
 volumes:
+  promtail_positions:
   caddy_data:
   caddy_config:
   prometheus_data:
