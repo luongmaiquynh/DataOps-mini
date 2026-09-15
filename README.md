@@ -254,6 +254,7 @@ pytest tests/ -v
 | Secret | Ansible Vault (mật khẩu vault đọc từ `~/.ansible/vault_pass_dataops`, ngoài repo); `.env` sinh từ template, mỗi máy chỉ nhận phần nó cần |
 | Redis | Bắt buộc xác thực bằng `requirepass`; kết nối không mật khẩu bị từ chối với `NOAUTH` |
 | Network | VM2 tách network riêng `data-net` |
+| Lịch sử git | Đã dọn bằng `git filter-repo` (15/09/2026); toàn bộ mật khẩu từng xuất hiện đều đã được thay thế trước đó |
 | Cổng mở | VM1: 22, 8080, 5555, 3000, 9090, 9093, 8081 · VM2: 22, 5432, 6379, 9000, 9001 · VM3: 22, 9100 |
 
 **Lưu ý đã kiểm chứng:** UFW không chặn được cổng do Docker publish vì Docker

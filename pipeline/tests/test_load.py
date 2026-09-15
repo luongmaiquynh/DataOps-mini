@@ -95,7 +95,7 @@ def test_load_to_minio_calls_put_object(sample_df):
             object_name='raw/employees/2026-05-13.csv',
             endpoint='192.168.64.3:9000',
             access_key='minioadmin',
-            secret_key='***REMOVED***',
+            secret_key='test-secret-key',
         )
         mock_client.put_object.assert_called_once()
         call_kwargs = mock_client.put_object.call_args[1]
@@ -113,7 +113,7 @@ def test_load_to_minio_uploads_csv_content(sample_df):
             object_name='raw/test.csv',
             endpoint='192.168.64.3:9000',
             access_key='minioadmin',
-            secret_key='***REMOVED***',
+            secret_key='test-secret-key',
         )
         body = mock_client.put_object.call_args[1]['Body']
         assert isinstance(body, bytes)
@@ -138,7 +138,7 @@ def test_load_to_minio_raises_on_client_error(sample_df):
                 object_name='test.csv',
                 endpoint='192.168.64.3:9000',
                 access_key='minioadmin',
-                secret_key='***REMOVED***',
+                secret_key='test-secret-key',
             )
 
 
