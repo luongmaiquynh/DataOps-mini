@@ -1,6 +1,7 @@
 # Các file môi trường và mật khẩu
 .env
 .env.local
+.env.*            # bản backup .env do Ansible tạo trên VM
 
 # Thư mục rác của Python
 __pycache__/

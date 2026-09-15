@@ -13,7 +13,11 @@ jobs:
       - name: Deploy Airflow DAGs
         run: |
           cd /home/dataops/dataops
-          git pull origin main
+          # reset --hard thay cho pull: Ansible cũng đẩy file xuống thư mục này
+          # bằng rsync, nên pull hay bị chặn bởi file local. Repo là nguồn sự
+          # thật duy nhất, ghi đè là đúng ý muốn.
+          git fetch origin main
+          git reset --hard FETCH_HEAD
           docker exec airflow_scheduler airflow dags reserialize
           echo "Deploy DAGs completed at $(date)"
 
@@ -26,7 +30,8 @@ jobs:
       - name: Deploy monitoring config
         run: |
           cd /home/dataops/dataops
-          git pull origin main
+          git fetch origin main
+          git reset --hard FETCH_HEAD
           docker compose -f docker/dataops-vm1/docker-compose-monitoring.yml \
             up -d --force-recreate prometheus alertmanager
           echo "Monitoring deploy completed at $(date)"
