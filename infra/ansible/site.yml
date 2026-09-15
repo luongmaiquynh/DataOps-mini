@@ -1,6 +1,6 @@
 ---
 # Entrypoint triển khai toàn hệ thống.
-# Chạy: ansible-playbook site.yml --ask-become-pass
+# Chạy: ansible-playbook site.yml --ask-become-pass --ask-vault-pass
 #
 # Thứ tự bắt buộc: VM2 trước (Airflow cần PostgreSQL và Redis sẵn sàng),
 # rồi VM1, cuối cùng VM3.
@@ -10,6 +10,10 @@
   roles:
     - docker
     - app_code
+    - role: dotenv
+      dotenv_dests:
+        - "{{ app_dir }}/.env"
+        - "{{ app_dir }}/docker/dataops-vm2/.env"
     - database
 
 - name: Airflow and monitoring (VM1)
@@ -18,6 +22,10 @@
   roles:
     - docker
     - app_code
+    - role: dotenv
+      dotenv_dests:
+        - "{{ app_dir }}/.env"
+        - "{{ app_dir }}/docker/dataops-vm1/.env"
     - airflow
     - monitoring
 
@@ -27,5 +35,6 @@
   roles:
     - docker
     - app_code
+    - dotenv
     - node_exporter
     - backup

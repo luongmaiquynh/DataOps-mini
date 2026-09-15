@@ -121,17 +121,25 @@ Yêu cầu trên máy điều khiển (macOS): `ansible`, các collection `ansib
 `community.docker`, cùng **GNU rsync** (`brew install rsync`). Bản `openrsync` mà
 macOS cài sẵn không xuất được thông tin thay đổi nên Ansible sẽ luôn báo `changed`.
 
+Secret được quản lý bằng Ansible Vault trong `infra/ansible/group_vars/all/vault.yml`
+(đã mã hoá, commit được). Giá trị không nhạy cảm nằm ở `vars.yml` cùng thư mục.
+File `.env` trên từng VM do Ansible sinh ra từ template — **không sửa trực tiếp trên VM**.
+
 ```bash
 cd infra/ansible
+
+# Xem hoặc sửa secret
+ansible-vault view group_vars/all/vault.yml
+ansible-vault edit group_vars/all/vault.yml
 
 # Kiểm tra kết nối trước khi deploy
 ansible all -m ping
 
 # Deploy toàn bộ hệ thống (vm2 → vm1 → vm3)
-ansible-playbook site.yml --ask-become-pass
+ansible-playbook site.yml --ask-become-pass --ask-vault-pass
 
 # Hoặc deploy riêng từng VM
-ansible-playbook site.yml --limit vm2 --ask-become-pass
+ansible-playbook site.yml --limit vm2 --ask-become-pass --ask-vault-pass
 
 # Chỉ cài Docker
 ansible-playbook install_docker.yml --ask-become-pass
@@ -142,7 +150,8 @@ Cấu trúc role:
 | Role | Chạy ở | Nhiệm vụ |
 |---|---|---|
 | `docker` | cả 3 VM | Docker Engine + Compose plugin |
-| `app_code` | cả 3 VM | Đồng bộ code từ máy điều khiển (không đụng `.env` của VM) |
+| `app_code` | cả 3 VM | Đồng bộ code từ máy điều khiển |
+| `dotenv` | cả 3 VM | Sinh `.env` từ template, secret lấy từ Ansible Vault |
 | `database` | vm2 | PostgreSQL, Redis, MinIO |
 | `airflow` | vm1 | Airflow CeleryExecutor |
 | `monitoring` | vm1 | Prometheus, Grafana, Loki, Alertmanager, các exporter |

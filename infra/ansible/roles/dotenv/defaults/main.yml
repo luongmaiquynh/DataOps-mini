@@ -1,0 +1,5 @@
+---
+# Mặc định chỉ đặt ở thư mục gốc repo. Mỗi play khai báo thêm thư mục chứa
+# file compose, vì Docker Compose đọc .env từ thư mục chứa compose file.
+dotenv_dests:
+  - "{{ app_dir }}/.env"

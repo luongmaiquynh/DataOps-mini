@@ -1,0 +1,15 @@
+---
+# Giá trị không nhạy cảm — commit bình thường.
+# Secret nằm trong vault.yml (đã mã hoá).
+
+env_postgres_user: 'dataops'
+env_postgres_db: 'dataops_db'
+env_postgres_host: '192.168.64.3'
+env_postgres_port: '5432'
+env_redis_host: '192.168.64.3'
+env_redis_port: '6379'
+env_minio_host: '192.168.64.3'
+env_minio_port: '9000'
+env_minio_console_port: '9001'
+env_minio_bucket: 'dataops-lake'
+env_grafana_admin_user: 'admin'

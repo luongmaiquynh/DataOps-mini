@@ -1,0 +1,11 @@
+---
+- name: Render .env files
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ item }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0600"
+    backup: true        # giữ bản cũ để đối chiếu nếu render sai
+  loop: "{{ dotenv_dests }}"
+  no_log: true          # không in nội dung file ra log Ansible
