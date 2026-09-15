@@ -308,6 +308,24 @@ ls /opt/backup/postgres/
 
 Giữ backup 7 ngày gần nhất, tự động xóa file cũ hơn.
 
+Mỗi lần backup tạo **hai file**: `backup_<db>_<timestamp>.sql.gz` chứa dữ liệu và
+`roles_<timestamp>.sql.gz` chứa định nghĩa user. Thiếu file thứ hai thì restore
+vào một cụm PostgreSQL mới sẽ dừng với `role "dataops" does not exist`.
+
+### Kiểm chứng backup
+
+`backup/restore-test.sh` chạy 3:00 sáng Chủ nhật hàng tuần trên VM3: dựng một
+PostgreSQL tạm trong container, restore role rồi restore database, đếm số bảng và
+số dòng, sau đó xoá container. Thoát khác 0 nếu bản backup không dùng được.
+
+```bash
+ssh dataops@192.168.64.4 "bash /home/dataops/restore-test.sh"
+tail -f /var/log/dataops-restore-test.log
+```
+
+Kết quả lần chạy 15/09/2026: 49 bảng, `employees` 5 dòng, `weather_hanoi` 144
+dòng. Đã thử với một file backup cố tình làm hỏng để xác nhận script báo lỗi.
+
 ## CI/CD
 
 ### CI (GitHub Actions)

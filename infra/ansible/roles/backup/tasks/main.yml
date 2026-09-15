@@ -57,3 +57,34 @@
     hour: "{{ backup_hour }}"
     job: "{{ backup_script }} >> {{ backup_log }} 2>&1"
     state: present
+
+# Backup chưa từng restore thì chưa chứng minh được điều gì. Script này chạy
+# hàng tuần, restore bản mới nhất vào một PostgreSQL tạm rồi đếm bảng và dòng.
+- name: Install restore verification script
+  ansible.builtin.copy:
+    src: "{{ app_dir }}/backup/restore-test.sh"
+    dest: "{{ restore_test_script }}"
+    remote_src: true
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Ensure restore test log file exists
+  ansible.builtin.file:
+    path: "{{ restore_test_log }}"
+    state: touch
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+
+- name: Schedule weekly restore verification
+  ansible.builtin.cron:
+    name: Weekly backup restore verification
+    user: "{{ app_user }}"
+    minute: "0"
+    hour: "{{ restore_test_hour }}"
+    weekday: "{{ restore_test_weekday }}"
+    job: "{{ restore_test_script }} >> {{ restore_test_log }} 2>&1"
+    state: present

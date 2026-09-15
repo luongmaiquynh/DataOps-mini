@@ -23,6 +23,7 @@ BACKUP_DIR="/opt/backup/postgres"
 RETENTION_DAYS=7
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/backup_${POSTGRES_DB}_${TIMESTAMP}.sql.gz"
+ROLES_FILE="$BACKUP_DIR/roles_${TIMESTAMP}.sql.gz"
 LOG_PREFIX="[$(date '+%Y-%m-%d %H:%M:%S')]"
 
 # --- Tạo thư mục backup nếu chưa có ---
@@ -34,6 +35,7 @@ echo "$LOG_PREFIX File     : $BACKUP_FILE"
 
 # --- Dùng pg_dump v15 cho đúng version server ---
 PG_DUMP="/usr/lib/postgresql/15/bin/pg_dump"
+PG_DUMPALL="/usr/lib/postgresql/15/bin/pg_dumpall"
 PG_ISREADY="/usr/lib/postgresql/15/bin/pg_isready"
 
 # --- Không có mật khẩu thì dừng ngay, không đoán giá trị mặc định ---
@@ -65,6 +67,24 @@ if [ $DUMP_EXIT -eq 0 ] && [ -s "$BACKUP_FILE" ]; then
 else
     echo "$LOG_PREFIX [ERROR] Backup thất bại! Xóa file lỗi..."
     rm -f "$BACKUP_FILE"
+    exit 1
+fi
+
+# --- Dump định nghĩa role ---
+# pg_dump của một database KHÔNG chứa định nghĩa user, nên khi restore vào cụm
+# PostgreSQL mới sẽ lỗi 'role "dataops" does not exist'. Phải dump role riêng.
+PGPASSWORD="$POSTGRES_PASSWORD" "$PG_DUMPALL" \
+    -h "$POSTGRES_HOST" \
+    -p "$POSTGRES_PORT" \
+    -U "$POSTGRES_USER" \
+    --roles-only \
+    | gzip > "$ROLES_FILE"
+
+if [ ${PIPESTATUS[0]} -eq 0 ] && [ -s "$ROLES_FILE" ]; then
+    echo "$LOG_PREFIX [OK] Đã dump định nghĩa role: $(basename "$ROLES_FILE")"
+else
+    echo "$LOG_PREFIX [ERROR] Dump role thất bại — bản backup sẽ không restore được vào cụm mới"
+    rm -f "$ROLES_FILE"
     exit 1
 fi
 
