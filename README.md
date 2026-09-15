@@ -169,6 +169,7 @@ docker compose up -d
 # VM1 - Airflow
 ssh dataops@192.168.64.2
 cd ~/dataops/docker/dataops-vm1
+docker compose --profile init run --rm airflow-init   # chỉ lần đầu, hoặc sau khi nâng cấp Airflow
 docker compose up -d
 
 # VM1 - Monitoring

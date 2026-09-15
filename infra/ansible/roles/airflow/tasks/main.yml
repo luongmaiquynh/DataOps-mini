@@ -1,4 +1,15 @@
 ---
+# `airflow db migrate` là lệnh hội tụ: chạy lại trên DB đã migrate là no-op.
+# Nó chỉ in "Running upgrade" khi thực sự áp dụng revision mới, nên dùng
+# đúng dấu hiệu đó làm điều kiện báo changed thay vì báo bừa mỗi lần chạy.
+- name: Run Airflow metadata DB migration
+  ansible.builtin.command:
+    cmd: docker compose --profile init run --rm airflow-init
+    chdir: "{{ airflow_compose_dir }}"
+  become: false
+  register: airflow_init
+  changed_when: "'Running upgrade' in airflow_init.stdout"
+
 - name: Deploy Airflow stack
   community.docker.docker_compose_v2:
     project_src: "{{ airflow_compose_dir }}"
