@@ -1,3 +1,9 @@
+# Tên project tách riêng khỏi stack monitoring cùng thư mục, nếu không
+# Compose lấy tên thư mục làm tên project và coi container của stack kia
+# là orphan — `down --remove-orphans` sẽ xoá nhầm.
+# Stack này chỉ dùng bind mount, không có named volume, nên đổi tên an toàn.
+name: dataops-airflow
+
 x-airflow-common: &airflow-common
   image: apache/airflow:2.7.1
   restart: always

@@ -1,3 +1,8 @@
+# Giữ đúng tên project cũ (tên thư mục) vì các named volume hiện có mang
+# tiền tố dataops-vm1_: đổi tên sẽ tạo volume mới và mất dữ liệu Grafana,
+# Prometheus, Loki.
+name: dataops-vm1
+
 services:
 
   prometheus:
