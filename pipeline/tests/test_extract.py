@@ -8,8 +8,9 @@ import pandas as pd  # noqa: E402
 from unittest.mock import patch, MagicMock  # noqa: E402
 from etl.extract import extract_from_csv, extract_from_api  # noqa: E402
 
+# Fixture co dinh cho test — tach khoi sample_data/sample.csv (du lieu demo co the thay doi)
 SAMPLE_CSV = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'sample_data', 'sample.csv'
+    os.path.dirname(__file__), 'fixtures', 'employees_sample.csv'
 )
 
 

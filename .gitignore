@@ -16,6 +16,11 @@ ENV/
 *.json
 *.xlsx
 !sample_data/sample.csv
+!pipeline/tests/fixtures/*.csv
+
+# Thư mục runtime của Airflow (được mount vào container)
+logs/
+plugins/
 
 # File hệ thống Mac
 .DS_Store
