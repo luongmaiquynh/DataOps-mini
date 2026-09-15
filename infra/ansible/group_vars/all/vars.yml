@@ -16,3 +16,9 @@ env_grafana_admin_user: 'admin'
 
 # URL nhip tim cho dead man's switch (healthchecks.io) — giá trị nằm trong vault
 dead_mans_switch_url: "{{ vault_dead_mans_switch_url }}"
+
+# Tag image Airflow mang hash của requirements.txt: đổi thư viện là tag đổi theo,
+# nên không bao giờ chạy nhầm image cũ.
+airflow_image_name: dataops-airflow
+airflow_image_tag: "2.7.1-{{ lookup('file', playbook_dir + '/../../docker/airflow/requirements.txt') | hash('sha1') | truncate(10, true, '') }}"
+airflow_image: "{{ airflow_image_name }}:{{ airflow_image_tag }}"

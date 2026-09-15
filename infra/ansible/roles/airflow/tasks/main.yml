@@ -1,4 +1,23 @@
 ---
+# Build image tại chỗ thay vì kéo từ registry: lab không có registry riêng, và
+# build một lần rồi dùng mãi vẫn tốt hơn tải thư viện ở mỗi lần container chạy.
+# Tag mang hash requirements nên chỉ build lại khi danh sách thư viện thay đổi.
+- name: Build the Airflow image
+  community.docker.docker_image:
+    name: "{{ airflow_image_name }}"
+    tag: "{{ airflow_image_tag }}"
+    source: build
+    build:
+      path: "{{ app_dir }}/docker/airflow"
+      pull: false
+    state: present
+    force_source: false
+  become: false
+  register: airflow_build
+  retries: 3
+  delay: 30
+  until: airflow_build is succeeded
+
 # `airflow db migrate` là lệnh hội tụ: chạy lại trên DB đã migrate là no-op.
 # Nó chỉ in "Running upgrade" khi thực sự áp dụng revision mới, nên dùng
 # đúng dấu hiệu đó làm điều kiện báo changed thay vì báo bừa mỗi lần chạy.

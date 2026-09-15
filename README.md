@@ -313,6 +313,23 @@ sudo sh -c 'cat >> /etc/hosts' <<'EOF'
 EOF
 ```
 
+## Image Airflow
+
+Airflow chạy image tự build từ [docker/airflow/Dockerfile](docker/airflow/Dockerfile),
+đã cài sẵn thư viện cho pipeline. Tag mang hash của `requirements.txt` nên đổi thư
+viện là tag đổi theo, không bao giờ chạy nhầm image cũ.
+
+| | Trước (`_PIP_ADDITIONAL_REQUIREMENTS`) | Sau (image tự build) |
+|---|---|---|
+| Thời gian tới khi webserver healthy | **419 giây** | **17 giây** |
+| Phụ thuộc mạng lúc khởi động | Có — đã fail thật 2 lần | Không |
+| Số lần tải thư viện | Mỗi container, mỗi lần khởi động | Một lần lúc build |
+
+```bash
+# Đổi thư viện: sửa docker/airflow/requirements.txt rồi
+ansible-playbook site.yml --limit vm1 --ask-become-pass
+```
+
 ## Khôi phục thảm hoạ
 
 [docs/dr-plan.md](docs/dr-plan.md) nêu RPO, RTO và quy trình cho từng kịch bản, kèm
