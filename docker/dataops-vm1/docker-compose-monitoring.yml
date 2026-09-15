@@ -1,7 +1,7 @@
 services:
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.11.3
     container_name: prometheus
     restart: always
     volumes:
@@ -19,7 +19,7 @@ services:
       - monitoring
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.0.1-security-01
     container_name: grafana
     restart: always
     environment:
@@ -38,7 +38,7 @@ services:
       - monitoring
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.7.1
     container_name: loki
     restart: always
     user: "0"
@@ -52,7 +52,7 @@ services:
       - monitoring
 
   promtail:
-    image: grafana/promtail:latest
+    image: grafana/promtail:3.6.8
     container_name: promtail
     restart: always
     volumes:
@@ -68,7 +68,7 @@ services:
       - monitoring
 
   alertmanager:
-    image: prom/alertmanager:latest
+    image: prom/alertmanager:v0.32.1
     container_name: alertmanager
     restart: always
     volumes:
@@ -82,7 +82,7 @@ services:
       - monitoring
 
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.11.1
     container_name: node_exporter
     restart: always
     volumes:
@@ -100,7 +100,7 @@ services:
       - monitoring
 
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:v0.19.1
     container_name: postgres_exporter
     restart: always
     environment:
@@ -111,7 +111,7 @@ services:
       - monitoring
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: cadvisor
     restart: always
     privileged: true
