@@ -43,7 +43,9 @@ write_metrics() {
     } > "$tmp" && mv "$tmp" "$METRIC_FILE"
 }
 
-OUT=$(docker exec -e PROBE_QUEUE="$QUEUE" "$CONTAINER" python - <<'PY' 2>/dev/null
+# -i là bắt buộc: không có nó thì heredoc bên dưới không đi vào được stdin của
+# container và lệnh trả về rỗng. Đã mắc đúng lỗi này lúc chạy thử lần đầu.
+OUT=$(docker exec -i -e PROBE_QUEUE="$QUEUE" "$CONTAINER" python - <<'PY' 2>/dev/null
 import os
 import redis
 from sqlalchemy import create_engine, text
