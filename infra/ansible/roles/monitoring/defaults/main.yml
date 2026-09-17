@@ -4,3 +4,7 @@ monitoring_compose_file: docker-compose-monitoring.yml
 # URL của dịch vụ dead man's switch (ví dụ healthchecks.io). Để trống thì nhịp
 # tim Watchdog bị nuốt và không gửi đi đâu cả.
 monitoring_dead_mans_switch_url: ""
+# Thư mục node-exporter đọc để lấy metric của các script định kỳ trên VM1.
+monitoring_textfile_dir: /var/lib/node_exporter/textfile
+monitoring_celery_metrics_script: /home/dataops/celery-queue-metrics.sh
+monitoring_celery_metrics_log: /var/log/dataops-celery-metrics.log

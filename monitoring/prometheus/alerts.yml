@@ -163,6 +163,47 @@ groups:
           description: >-
             Lần kiểm chứng restore gần nhất cách đây {{ $value | humanizeDuration }}.
 
+  - name: pipeline
+    rules:
+      # Sự cố 17/09/2026: worker ngừng lấy việc 25,5 giờ mà mọi phép đo đều báo
+      # xanh, vì không phép đo nào hỏi "hàng đợi có vơi không".
+      - alert: AirflowTaskStuckQueued
+        expr: dataops_airflow_queued_task_age_seconds > 900
+        for: 5m
+        labels:
+          severity: critical
+          vm: vm1
+        annotations:
+          summary: "Task Airflow nằm chờ quá lâu"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/AirflowTaskStuckQueued.md
+          description: >-
+            Task chờ lâu nhất đã chờ {{ $value | humanizeDuration }} mà chưa được worker nhận.
+
+      - alert: CeleryQueueBacklog
+        expr: dataops_celery_queue_length > 20
+        for: 15m
+        labels:
+          severity: warning
+          vm: vm1
+        annotations:
+          summary: "Hàng đợi Celery dồn việc"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/CeleryQueueBacklog.md
+          description: "Hàng đợi còn {{ $value }} việc chưa được xử lý sau 15 phút."
+
+      - alert: CeleryMetricMissing
+        expr: absent(dataops_celery_probe_success)
+        for: 30m
+        labels:
+          severity: warning
+          vm: vm1
+        annotations:
+          summary: "Không thấy phép đo hàng đợi Celery"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/CeleryMetricMissing.md
+          description: "Cron đo hàng đợi không chạy, hoặc node-exporter mất thư mục textfile."
+
   - name: endpoints
     rules:
       # Container có thể "Up" trong khi dịch vụ đã không trả lời được nữa.

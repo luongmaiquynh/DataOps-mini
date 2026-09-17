@@ -137,7 +137,7 @@ metric, so a broken backup raises an alert instead of sitting silently in a log.
 
 ## Alerting
 
-13 rules, each carrying a `runbook_url` that points at a specific procedure in
+19 rules, each carrying a `runbook_url` that points at a specific procedure in
 [docs/runbooks/](docs/runbooks/) — the person paged at 2 a.m. gets instructions, not
 just a red dot.
 
@@ -164,7 +164,7 @@ publishing ports that nothing outside needs.
 
 ## What I learned the hard way
 
-Four incidents are written up in [docs/postmortems/](docs/postmortems/). They share
+Five incidents are written up in [docs/postmortems/](docs/postmortems/). They share
 a theme: **the system reported healthy while it was broken**.
 
 | Incident | Hidden for |
@@ -173,6 +173,7 @@ a theme: **the system reported healthy while it was broken**.
 | Prometheus serving a stale rules file because Docker binds single files by inode | hours |
 | CD silently failing on three consecutive pushes | 3 pushes |
 | Three VMs dying from RAM overcommit (24 GB allocated on a 16 GB host) | hours |
+| A Celery worker that answered every health check while it had stopped consuming work | 25.5 hours |
 
 Three of the four only surfaced because someone went looking at something everyone
 assumed was fine.
@@ -197,5 +198,5 @@ Written down deliberately — a system is only trustworthy if its gaps are known
 | [docs/dr-plan.md](docs/dr-plan.md) | RPO/RTO, four recovery scenarios, gap analysis |
 | [docs/chaos-drills.md](docs/chaos-drills.md) | 12 drills actually run, with commands to repeat them |
 | [docs/runbooks/](docs/runbooks/) | One procedure per alert |
-| [docs/postmortems/](docs/postmortems/) | Four incident write-ups |
+| [docs/postmortems/](docs/postmortems/) | Five incident write-ups |
 | [docs/README.vi.md](docs/README.vi.md) | Vietnamese operating guide |

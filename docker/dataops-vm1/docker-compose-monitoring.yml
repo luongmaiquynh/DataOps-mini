@@ -114,10 +114,15 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
+      # Chỗ các script định kỳ trên VM1 ghi metric của mình ra cho Prometheus.
+      # VM3 đã dùng cách này cho backup; VM1 trước đây chưa bật, nên không có
+      # đường nào đưa số đo của cron job vào giám sát.
+      - /var/lib/node_exporter/textfile:/textfile:ro
     command:
       - '--path.procfs=/host/proc'
       - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
+      - '--collector.textfile.directory=/textfile'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     # Không publish ra host: Prometheus scrape qua tên service trong network
     # monitoring. Publish ra host sẽ mở cổng cho cả mạng LAN vì Docker đi

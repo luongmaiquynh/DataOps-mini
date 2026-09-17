@@ -58,3 +58,42 @@
   retries: 18
   delay: 5
   until: monitoring_airflow_proxy.status is defined and monitoring_airflow_proxy.status == 200
+
+# Sự cố 17/09/2026: Celery worker ngừng lấy việc 25 giờ mà không alert nào bật,
+# vì mọi phép đo đều hỏi "tiến trình còn sống không" thay vì "hàng đợi có vơi
+# không". Ba task dưới đây dựng đường đưa câu trả lời đó vào Prometheus.
+- name: Create node-exporter textfile directory
+  ansible.builtin.file:
+    path: "{{ monitoring_textfile_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Install Celery queue metrics script
+  ansible.builtin.copy:
+    src: "{{ app_dir }}/monitoring/scripts/celery-queue-metrics.sh"
+    dest: "{{ monitoring_celery_metrics_script }}"
+    remote_src: true
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Ensure Celery metrics log file exists
+  ansible.builtin.file:
+    path: "{{ monitoring_celery_metrics_log }}"
+    state: touch
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+
+# Mỗi phút: hàng đợi tắc là chuyện cần biết trong vài phút, không phải vài giờ.
+- name: Schedule Celery queue measurement every minute
+  ansible.builtin.cron:
+    name: Celery queue metrics
+    user: "{{ app_user }}"
+    minute: "*"
+    job: "{{ monitoring_celery_metrics_script }} >> {{ monitoring_celery_metrics_log }} 2>&1"
+    state: present

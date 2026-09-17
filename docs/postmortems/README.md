@@ -13,9 +13,14 @@ xảy ra mà không ai biết.
 | 2 | [Prometheus đọc file cấu hình cũ](02-prometheus-doc-file-cu.md) | Trung bình | Vài giờ |
 | 3 | [CD hỏng âm thầm](03-cd-hong-am-tham.md) | Trung bình | 3 lần push |
 | 4 | [VM chết vì cấp phát RAM vượt mức](04-vm-chet-vi-thieu-ram.md) | Nghiêm trọng | Vài giờ |
+| 5 | [Celery worker ngừng nhận việc](05-celery-worker-ngung-nhan-viec.md) | Nghiêm trọng | 25,5 giờ |
 
 ## Điểm chung
 
-Cả bốn đều thuộc một loại: **hệ thống báo xanh trong khi đã hỏng**. Không cái nào
-tự báo lỗi. Ba trong bốn chỉ lộ ra khi có người chủ động đi kiểm tra thứ mà mọi
+Cả năm đều thuộc một loại: **hệ thống báo xanh trong khi đã hỏng**. Không cái nào
+tự báo lỗi. Bốn trong năm chỉ lộ ra khi có người chủ động đi kiểm tra thứ mà mọi
 người đều mặc định là đang chạy tốt.
+
+Sự cố số 5 đẩy bài học đi xa hơn một bước: ở đó không chỉ cảnh báo im lặng, mà cả
+ba lệnh kiểm tra quen tay — `docker ps`, `celery inspect ping`, `celery inspect
+active_queues` — đều trả lời "bình thường" trong khi công việc đã ngừng chạy 25 giờ.
