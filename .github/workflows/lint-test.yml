@@ -55,6 +55,15 @@ jobs:
       - name: Lint YAML
         run: yamllint .
 
+      # ansible.cfg trỏ tới file mật khẩu vault nằm ngoài repo (máy vận hành).
+      # Runner không có file đó nên ansible-lint chết ngay khi nạp cấu hình, báo
+      # 13 lỗi internal-error. Lint không cần giải mã vault, chỉ cần file tồn tại.
+      - name: Provide a dummy vault password file
+        run: |
+          mkdir -p ~/.ansible
+          echo lint-only-not-a-real-secret > ~/.ansible/vault_pass_dataops
+          chmod 600 ~/.ansible/vault_pass_dataops
+
       - name: Lint Ansible
         run: cd infra/ansible && ansible-lint
 
@@ -62,7 +71,7 @@ jobs:
         run: shellcheck backup/*.sh
 
       - name: Lint Dockerfile
-        run: docker run --rm -i hadolint/hadolint:2.15.1 < docker/airflow/Dockerfile
+        run: docker run --rm -i hadolint/hadolint:v2.15.1 < docker/airflow/Dockerfile
 
       # Compose dùng cú pháp ${BIEN:?...} nên phải có đủ biến mới kiểm tra được.
       # Giá trị ở đây chỉ để kiểm tra cú pháp, không phải secret thật.
@@ -101,5 +110,7 @@ jobs:
 
       - name: Validate Prometheus rules
         run: |
-          docker run --rm -v "$PWD/monitoring/prometheus:/cfg" \
-            prom/prometheus:v3.11.3 promtool check rules /cfg/alerts.yml
+          # entrypoint của image là prometheus, nên phải đổi mới gọi được promtool
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/monitoring/prometheus:/cfg" \
+            prom/prometheus:v3.11.3 check rules /cfg/alerts.yml
