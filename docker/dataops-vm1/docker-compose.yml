@@ -44,7 +44,10 @@ services:
     profiles:
       - init
     restart: no
-    command: bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@dataops.local"
+    # Mật khẩu lấy từ .env (Ansible sinh ra từ vault), không viết cứng trong repo.
+    # Cú pháp :? khiến deploy dừng ngay nếu thiếu biến, thay vì âm thầm tạo lại
+    # tài khoản admin/admin như trước.
+    command: bash -c "airflow db migrate && airflow users create --username ${AIRFLOW_ADMIN_USER:?thieu AIRFLOW_ADMIN_USER} --password ${AIRFLOW_ADMIN_PASSWORD:?thieu AIRFLOW_ADMIN_PASSWORD} --firstname Admin --lastname User --role Admin --email admin@dataops.local"
 
   airflow-webserver:
     <<: *airflow-common

@@ -22,6 +22,7 @@ một quy trình khôi phục chưa từng chạy thì chưa phải quy trình.
 | 10 | Khôi phục database từ backup sang DB mới | 49 bảng, dữ liệu đầy đủ | **2 giây** | 15/09/2026 |
 | 11 | Xoá volume Grafana | Datasource và dashboard tự trở về từ file | ~30 giây | 15/09/2026 |
 | 12 | Tắt Grafana | `EndpointDown` bật đúng endpoint | 2 phút | 16/09/2026 |
+| 13 | **Khôi phục data lake vào một MinIO trắng** | 17/17 object, md5 khớp từng byte | **dưới 1 giây** | 17/09/2026 |
 
 ## Cách lặp lại từng kịch bản
 
@@ -96,6 +97,39 @@ ssh dataops@192.168.64.2 'docker stop grafana'
 ssh dataops@192.168.64.2 'docker start grafana'
 ```
 
+### 13. Khôi phục MinIO từ bản sao
+
+Chạy hoàn toàn trong `/tmp` với một MinIO dựng riêng, nên không đụng dữ liệu thật.
+
+```bash
+ssh dataops@192.168.64.4
+DRILL=/tmp/drill; mkdir -p $DRILL/{data,restore}
+MC=quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+
+# 1. Bản sao mới nhất
+bash /home/dataops/backup-minio.sh
+ARCHIVE=$(ls -t /opt/backup/minio/minio_*.tar.gz | head -1)
+
+# 2. Một MinIO hoàn toàn trống
+docker run -d --name minio_drill -e MINIO_ROOT_USER=drilluser \
+  -e MINIO_ROOT_PASSWORD=drillpass123 -v $DRILL/data:/data -p 19000:9000 \
+  quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+
+# 3. Đổ ngược vào
+tar xzf "$ARCHIVE" -C $DRILL/restore
+docker run --rm --network host --user "$(id -u):$(id -g)" -e MC_CONFIG_DIR=/tmp/.mc \
+  -v $DRILL/restore:/restore --entrypoint sh $MC -c \
+  "mc alias set drill http://127.0.0.1:19000 drilluser drillpass123 && \
+   mc mb --ignore-existing drill/dataops-lake && \
+   mc mirror --overwrite /restore/dataops-lake drill/dataops-lake"
+
+# 4. Đối chiếu: số object phải bằng nhau, md5 phải khớp
+docker rm -f minio_drill
+```
+
+Kết quả 17/09/2026: 17 object trong bản sao, 17 object sau khi khôi phục, md5 của
+file mẫu khớp từng byte, thời gian mirror dưới 1 giây.
+
 ## Những gì diễn tập đã phát hiện
 
 Không phải kịch bản nào cũng chạy trơn. Ba lần thử đã lộ ra lỗi thật:
@@ -105,6 +139,7 @@ Không phải kịch bản nào cũng chạy trơn. Ba lần thử đã lộ ra 
 | Kiểm chứng restore lần đầu | Backup chạy suốt 4 tháng **không restore được** vào cụm mới vì thiếu định nghĩa role |
 | Xoá volume Grafana | Mount trỏ sai thư mục nên provisioning chưa bao giờ hoạt động |
 | Cảnh báo chứng chỉ TLS | Ngưỡng 7 ngày trong khi chứng chỉ chỉ có hạn 12 giờ — alert firing vĩnh viễn |
+| Sao lưu MinIO lần đầu | Container chạy bằng root nên toàn bộ file mirror thuộc root, user thường không xoá hay ghi đè được nữa |
 
 Đó chính là lý do phải diễn tập: cấu hình sai thường im lặng, và hệ thống vẫn
 báo xanh cho tới lúc thật sự cần tới nó.
@@ -116,4 +151,5 @@ báo xanh cho tới lúc thật sự cần tới nó.
 | Kiểm chứng restore (tự động) | Hàng tuần |
 | Kịch bản 7 (dead man's switch) | Mỗi quý |
 | Kịch bản 9, 10 (dựng lại và khôi phục) | Mỗi quý |
+| Kịch bản 13 (khôi phục MinIO) | Mỗi quý |
 | Toàn bộ danh sách | Sau mỗi thay đổi lớn về hạ tầng |

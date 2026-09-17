@@ -54,3 +54,41 @@
   retries: 30
   delay: 10
   until: airflow_health.rc == 0
+
+# Airflow 2.7.1 KHÔNG có lệnh `airflow users reset-password`: `airflow users`
+# chỉ có create/delete/list/import/export/add-role/remove-role. Tài khoản admin
+# tạo từ lần khởi tạo đầu vì thế không đổi được mật khẩu bằng CLI, mà xoá đi tạo
+# lại thì mất luôn quyền và lịch sử. Đường còn lại là gọi thẳng security manager
+# của Flask-AppBuilder.
+#
+# So mật khẩu hiện tại với vault trước khi ghi, nên chạy lại playbook không báo
+# changed bừa. Mật khẩu đi qua biến môi trường của `docker exec`, không nằm trong
+# dòng lệnh để khỏi lộ trong `ps`.
+- name: Ensure the Airflow admin password matches the vault
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      cat <<'PYEOF' | docker exec -i \
+        -e ADMIN_USER="{{ env_airflow_admin_user }}" \
+        -e ADMIN_PASS="{{ vault_airflow_admin_password }}" \
+        airflow_webserver python -
+      import os
+      from airflow.www.app import cached_app
+      from werkzeug.security import check_password_hash
+
+      sm = cached_app().appbuilder.sm
+      user = sm.find_user(username=os.environ["ADMIN_USER"])
+      if user is None:
+          print("MISSING_USER")
+          raise SystemExit(1)
+      if check_password_hash(user.password, os.environ["ADMIN_PASS"]):
+          print("ALREADY_MATCHES")
+      else:
+          sm.reset_password(user.id, os.environ["ADMIN_PASS"])
+          print("PASSWORD_UPDATED")
+      PYEOF
+    executable: /bin/bash
+  become: false
+  register: airflow_admin_password
+  changed_when: "'PASSWORD_UPDATED' in airflow_admin_password.stdout"
+  no_log: true

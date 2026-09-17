@@ -119,7 +119,7 @@ Mất mát tối đa: các file DAG đẩy lên kể từ 2:30 sáng của ngày
 
 | Điểm yếu | Hậu quả | Hướng xử lý |
 |---|---|---|
-| **Khôi phục MinIO chưa diễn tập** | Bản sao đã có và tự kiểm tra đọc lại được, nhưng chưa thử đổ ngược vào một MinIO trắng | Thêm một kịch bản vào `docs/chaos-drills.md` |
+| **Kiểm chứng khôi phục MinIO chưa tự động** | Đã diễn tập tay ngày 17/09/2026: 17/17 object vào một MinIO trắng, md5 khớp, dưới 1 giây. Nhưng `restore-test.sh` hằng tuần vẫn chỉ kiểm chứng PostgreSQL | Mở rộng `restore-test.sh` sang cả MinIO |
 | **Backup nằm cùng máy vật lý với dữ liệu gốc** | Mất máy Mac là mất cả dữ liệu lẫn backup | Đồng bộ thư mục backup ra ổ ngoài hoặc dịch vụ lưu trữ khác |
 | **Khoá vault chỉ có trên máy Mac** | Mất máy là không giải mã được secret | Cất bản sao khoá trong trình quản lý mật khẩu |
 | **Cài OS chưa tự động hoá** | Chiếm phần lớn RTO kịch bản 3 | Tạo sẵn một VM mẫu trong UTM để nhân bản |

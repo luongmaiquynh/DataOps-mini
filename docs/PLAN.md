@@ -1240,8 +1240,8 @@ docker compose up -d
 
 | Giao diện | URL | Tài khoản mặc định | Mô tả |
 |---|---|---|---|
-| **Airflow UI** | http://192.168.64.2:8080 | admin / admin | Quản lý, trigger, xem log DAGs |
-| **Grafana** | http://192.168.64.2:3000 | admin / admin | Dashboard metrics & logs |
+| **Airflow UI** | https://airflow.dataops.test | admin / xem vault | Quản lý, trigger, xem log DAGs |
+| **Grafana** | https://grafana.dataops.test | admin / xem vault | Dashboard metrics & logs |
 | **Prometheus** | http://192.168.64.2:9090 | — | Query metrics, xem alert rules |
 | **Alertmanager** | http://192.168.64.2:9093 | — | Xem alert đang firing |
 | **Celery Flower** | http://192.168.64.2:5555 | — | Monitor Celery workers |
