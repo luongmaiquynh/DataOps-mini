@@ -20,6 +20,7 @@ repeatable procedure in [docs/chaos-drills.md](docs/chaos-drills.md).
 | Backup is actually restorable | Weekly automated drill restores both the database and the object store; a deliberately corrupted archive is detected and fails the job |
 | Data lake restore | Nightly MinIO archive replayed into a blank instance → **17/17 objects**, md5 identical, under 1 s |
 | Monitoring-of-the-monitoring | Stopped Alertmanager for 17 min → external dead man's switch emailed after **14.5 min** |
+| Alert noise is controlled | Injected a host-down alert: every other alert for that host moved to `suppressed`, while the same alert on a different host stayed `active` |
 | Services survive reboot | Removed every container, rebooted the host → systemd brought the stack back with no manual step |
 | Dashboards survive volume loss | Deleted the Grafana volume → datasources and dashboards restored from files in this repo |
 | Deployment is not network-bound | Airflow cold start cut from **419 s → 17 s** by baking dependencies into a pinned image |

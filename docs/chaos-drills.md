@@ -23,6 +23,7 @@ một quy trình khôi phục chưa từng chạy thì chưa phải quy trình.
 | 11 | Xoá volume Grafana | Datasource và dashboard tự trở về từ file | ~30 giây | 15/09/2026 |
 | 12 | Tắt Grafana | `EndpointDown` bật đúng endpoint | 2 phút | 16/09/2026 |
 | 13 | **Khôi phục data lake vào một MinIO trắng** | 17/17 object, md5 khớp từng byte | **dưới 1 giây** | 17/09/2026 |
+| 14 | Bơm `InstanceDown` + `PostgreSQLDown` cùng nhãn `vm` vào Alertmanager | `PostgreSQLDown` chuyển sang `suppressed`; cùng alert đó ở `vm` khác vẫn `active` | ngay lập tức | 17/09/2026 |
 
 ## Cách lặp lại từng kịch bản
 
@@ -130,6 +131,35 @@ docker rm -f minio_drill
 Kết quả 17/09/2026: 17 object trong bản sao, 17 object sau khi khôi phục, md5 của
 file mẫu khớp từng byte, thời gian mirror dưới 1 giây.
 
+### 14. Luật inhibit có thật sự nín alert không
+
+Tắt database thật chỉ chứng minh được một nửa và làm gián đoạn Airflow. Bơm alert
+thẳng vào Alertmanager kiểm đúng thứ cần kiểm: logic nín.
+
+```bash
+ssh dataops@192.168.64.2
+AM="--alertmanager.url=http://localhost:9093"
+
+# 1. Alert phụ thuộc, chưa có gì nín nó
+docker exec alertmanager amtool alert add \
+  alertname=PostgreSQLDown severity=critical vm=vm2 instance=postgres-exporter:9187 $AM
+
+# 2. Báo luôn là cả máy chết
+docker exec alertmanager amtool alert add \
+  alertname=InstanceDown severity=critical vm=vm2 instance=192.168.64.3:9100 $AM
+
+# 3. PostgreSQLDown phải chuyển sang suppressed, kèm inhibitedBy
+docker exec alertmanager wget -qO- 'http://localhost:9093/api/v2/alerts' | \
+  python3 -m json.tool | grep -A3 '"state"'
+
+# 4. Phép thử ngược: cùng alert nhưng khác máy thì KHÔNG được nín
+docker exec alertmanager amtool alert add \
+  alertname=PostgreSQLDown severity=critical vm=vm3 instance=fake-exporter:9187 $AM
+```
+
+Kết quả 17/09/2026: `PostgreSQLDown` vm=vm2 `suppressed` với `inhibitedBy` trỏ đúng
+`InstanceDown`; `PostgreSQLDown` vm=vm3 vẫn `active`. Alert bơm tay tự hết sau 5 phút.
+
 ## Những gì diễn tập đã phát hiện
 
 Không phải kịch bản nào cũng chạy trơn. Ba lần thử đã lộ ra lỗi thật:
@@ -140,6 +170,7 @@ Không phải kịch bản nào cũng chạy trơn. Ba lần thử đã lộ ra 
 | Xoá volume Grafana | Mount trỏ sai thư mục nên provisioning chưa bao giờ hoạt động |
 | Cảnh báo chứng chỉ TLS | Ngưỡng 7 ngày trong khi chứng chỉ chỉ có hạn 12 giờ — alert firing vĩnh viễn |
 | Sao lưu MinIO lần đầu | Container chạy bằng root nên toàn bộ file mirror thuộc root, user thường không xoá hay ghi đè được nữa |
+| Đọc nhãn thật của từng target | Luật inhibit dùng `equal: ['instance']` chưa bao giờ khớp được: `instance` là địa chỉ của target, nên ba exporter trên cùng VM1 mang ba giá trị khác nhau |
 
 Đó chính là lý do phải diễn tập: cấu hình sai thường im lặng, và hệ thống vẫn
 báo xanh cho tới lúc thật sự cần tới nó.
@@ -152,4 +183,5 @@ báo xanh cho tới lúc thật sự cần tới nó.
 | Kịch bản 7 (dead man's switch) | Mỗi quý |
 | Kịch bản 9, 10 (dựng lại và khôi phục) | Mỗi quý |
 | Kịch bản 13 (khôi phục MinIO) | Mỗi quý |
+| Kịch bản 14 (luật inhibit) | Sau mỗi lần sửa luật cảnh báo |
 | Toàn bộ danh sách | Sau mỗi thay đổi lớn về hạ tầng |
