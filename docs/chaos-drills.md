@@ -148,7 +148,7 @@ báo xanh cho tới lúc thật sự cần tới nó.
 
 | Hạng mục | Tần suất |
 |---|---|
-| Kiểm chứng restore (tự động) | Hàng tuần |
+| Kiểm chứng restore PostgreSQL và MinIO (tự động) | Hàng tuần |
 | Kịch bản 7 (dead man's switch) | Mỗi quý |
 | Kịch bản 9, 10 (dựng lại và khôi phục) | Mỗi quý |
 | Kịch bản 13 (khôi phục MinIO) | Mỗi quý |

@@ -17,7 +17,8 @@ repeatable procedure in [docs/chaos-drills.md](docs/chaos-drills.md).
 | Rebuild a node from nothing | Wiped all containers, images and code on VM3 → **28 s** to full service via one playbook |
 | Configuration converges | `site.yml` second run: **`changed=0`** on all three hosts |
 | Database restore | Restored a nightly backup into a fresh database → **2 s**, 49 tables, row counts intact |
-| Backup is actually restorable | Weekly automated restore drill; a deliberately corrupted archive is detected and fails the job |
+| Backup is actually restorable | Weekly automated drill restores both the database and the object store; a deliberately corrupted archive is detected and fails the job |
+| Data lake restore | Nightly MinIO archive replayed into a blank instance → **17/17 objects**, md5 identical, under 1 s |
 | Monitoring-of-the-monitoring | Stopped Alertmanager for 17 min → external dead man's switch emailed after **14.5 min** |
 | Services survive reboot | Removed every container, rebooted the host → systemd brought the stack back with no manual step |
 | Dashboards survive volume loss | Deleted the Grafana volume → datasources and dashboards restored from files in this repo |

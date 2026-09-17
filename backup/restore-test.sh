@@ -45,8 +45,45 @@ write_metrics() {
         echo "dataops_restore_test_rows $rows"
     } > "$tmp" && mv "$tmp" "$METRIC_FILE"
 }
+# --- Phần kiểm chứng bản sao MinIO ---
+MINIO_BACKUP_DIR="${MINIO_BACKUP_DIR:-/opt/backup/minio}"
+MINIO_IMAGE="${MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z}"
+MC_IMAGE="${MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z}"
+MINIO_CONTAINER="minio_restore_test_$$"
+MINIO_DRILL_PORT="${MINIO_DRILL_PORT:-19001}"
+MINIO_DRILL_USER="drilluser"
+MINIO_DRILL_PASS="$(openssl rand -hex 16)"
+MINIO_WORKDIR="/tmp/minio_restore_test_$$"
+MINIO_BUCKET="${MINIO_BUCKET:-dataops-lake}"
+MINIO_METRIC_FILE="$TEXTFILE_DIR/dataops_restore_test_minio.prom"
+
+write_minio_metrics() {
+    local success="$1" objects="${2:-0}"
+    [ -d "$TEXTFILE_DIR" ] || return 0
+    local tmp="$MINIO_METRIC_FILE.$$"
+    {
+        echo "# HELP dataops_restore_test_minio_success Lần kiểm chứng khôi phục MinIO gần nhất có đạt không (1/0)"
+        echo "# TYPE dataops_restore_test_minio_success gauge"
+        echo "dataops_restore_test_minio_success $success"
+        echo "# HELP dataops_restore_test_minio_timestamp_seconds Thời điểm kiểm chứng MinIO gần nhất"
+        echo "# TYPE dataops_restore_test_minio_timestamp_seconds gauge"
+        echo "dataops_restore_test_minio_timestamp_seconds $(date +%s)"
+        echo "# HELP dataops_restore_test_minio_objects Số object khôi phục được vào MinIO trắng"
+        echo "# TYPE dataops_restore_test_minio_objects gauge"
+        echo "dataops_restore_test_minio_objects $objects"
+    } > "$tmp" && mv "$tmp" "$MINIO_METRIC_FILE"
+}
+
 # shellcheck disable=SC2329  # được gọi gián tiếp qua trap EXIT bên dưới
-cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
+cleanup() {
+    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+    docker rm -f "$MINIO_CONTAINER" >/dev/null 2>&1 || true
+    # Thư mục dữ liệu do MinIO trong container tạo ra, xoá bằng chính container
+    # để không phụ thuộc quyền của user đang chạy script.
+    [ -d "$MINIO_WORKDIR" ] && docker run --rm -v /tmp:/host alpine:3.20 \
+        sh -c "rm -rf /host/$(basename "$MINIO_WORKDIR")" >/dev/null 2>&1
+    rm -rf "$MINIO_WORKDIR" 2>/dev/null || true
+}
 trap cleanup EXIT
 
 log "===== BẮT ĐẦU KIỂM CHỨNG BACKUP ====="
@@ -129,5 +166,91 @@ fi
 
 write_metrics 1 "$TABLES" "$(( EMPLOYEES + WEATHER ))"
 log "[OK] Dữ liệu đầy đủ sau khi restore"
+
+# --- Bước 6: bản sao MinIO có đổ ngược được vào một MinIO trắng không ---
+# pg_dump không chạm tới data lake, nên phần này kiểm chứng riêng: dựng một MinIO
+# hoàn toàn trống, đổ bản sao mới nhất vào, rồi đếm lại số object.
+log "--- Kiểm chứng bản sao MinIO ---"
+MINIO_FAILED=0
+
+# shellcheck disable=SC2012  # tên file do chính script backup sinh ra
+MINIO_ARCHIVE=$(ls -t "$MINIO_BACKUP_DIR"/minio_*.tar.gz 2>/dev/null | head -1)
+if [ -z "$MINIO_ARCHIVE" ]; then
+    log "[ERROR] Không tìm thấy bản sao MinIO nào trong $MINIO_BACKUP_DIR"
+    write_minio_metrics 0
+    MINIO_FAILED=1
+else
+    log "File kiểm tra : $(basename "$MINIO_ARCHIVE") ($(du -h "$MINIO_ARCHIVE" | cut -f1))"
+    mkdir -p "$MINIO_WORKDIR/data" "$MINIO_WORKDIR/restore"
+
+    if ! tar xzf "$MINIO_ARCHIVE" -C "$MINIO_WORKDIR/restore" 2>/dev/null; then
+        log "[ERROR] Không giải nén được bản sao MinIO"
+        write_minio_metrics 0
+        MINIO_FAILED=1
+    else
+        SRC_OBJECTS=$(find "$MINIO_WORKDIR/restore" -type f | wc -l | tr -d ' ')
+
+        docker run -d --name "$MINIO_CONTAINER" \
+            -e MINIO_ROOT_USER="$MINIO_DRILL_USER" \
+            -e MINIO_ROOT_PASSWORD="$MINIO_DRILL_PASS" \
+            -v "$MINIO_WORKDIR/data:/data" \
+            -p "$MINIO_DRILL_PORT:9000" \
+            "$MINIO_IMAGE" server /data >/dev/null 2>&1
+
+        MINIO_READY=0
+        for _ in $(seq 1 30); do
+            if curl -sf --max-time 3 "http://127.0.0.1:$MINIO_DRILL_PORT/minio/health/live" >/dev/null 2>&1; then
+                MINIO_READY=1
+                break
+            fi
+            sleep 2
+        done
+
+        if [ "$MINIO_READY" -ne 1 ]; then
+            log "[ERROR] MinIO tạm không sẵn sàng sau 60 giây"
+            write_minio_metrics 0 "$SRC_OBJECTS"
+            MINIO_FAILED=1
+        else
+            docker run --rm --network host --user "$(id -u):$(id -g)" \
+                -e MC_CONFIG_DIR=/tmp/.mc \
+                -e DRILL_USER="$MINIO_DRILL_USER" \
+                -e DRILL_PASS="$MINIO_DRILL_PASS" \
+                -v "$MINIO_WORKDIR/restore:/restore" \
+                --entrypoint sh "$MC_IMAGE" -c \
+                "mc alias set drill http://127.0.0.1:$MINIO_DRILL_PORT \"\$DRILL_USER\" \"\$DRILL_PASS\" >/dev/null && \
+                 mc mb --ignore-existing drill/$MINIO_BUCKET >/dev/null && \
+                 mc mirror --overwrite /restore/$MINIO_BUCKET drill/$MINIO_BUCKET" >/dev/null 2>&1
+
+            # Đếm bằng chính mc, không đếm thư mục trên đĩa: MinIO lưu mỗi object
+            # thành một thư mục mang tên object, nên đếm theo đuôi file sẽ sai ngay
+            # khi lake chứa loại dữ liệu khác.
+            DST_OBJECTS=$(docker run --rm --network host --user "$(id -u):$(id -g)" \
+                -e MC_CONFIG_DIR=/tmp/.mc \
+                -e DRILL_USER="$MINIO_DRILL_USER" \
+                -e DRILL_PASS="$MINIO_DRILL_PASS" \
+                --entrypoint sh "$MC_IMAGE" -c \
+                "mc alias set drill http://127.0.0.1:$MINIO_DRILL_PORT \"\$DRILL_USER\" \"\$DRILL_PASS\" >/dev/null && \
+                 mc ls --recursive drill/$MINIO_BUCKET | wc -l" 2>/dev/null | tr -d ' ')
+            DST_OBJECTS="${DST_OBJECTS:-0}"
+            log "object trong bản sao      : $SRC_OBJECTS"
+            log "object sau khi khôi phục  : $DST_OBJECTS"
+
+            if [ "$DST_OBJECTS" -ne "$SRC_OBJECTS" ] || [ "$SRC_OBJECTS" -eq 0 ]; then
+                log "[ERROR] Số object không khớp — bản sao MinIO KHÔNG dùng được"
+                write_minio_metrics 0 "$DST_OBJECTS"
+                MINIO_FAILED=1
+            else
+                log "[OK] Khôi phục MinIO đạt: $DST_OBJECTS/$SRC_OBJECTS object"
+                write_minio_metrics 1 "$DST_OBJECTS"
+            fi
+        fi
+    fi
+fi
+
+if [ "$MINIO_FAILED" -ne 0 ]; then
+    log "===== KIỂM CHỨNG THẤT BẠI (phần MinIO) ====="
+    exit 1
+fi
+
 log "===== KIỂM CHỨNG THÀNH CÔNG ====="
 exit 0

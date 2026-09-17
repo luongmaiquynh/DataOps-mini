@@ -22,7 +22,7 @@ RPO 24 giờ là hệ quả trực tiếp của việc backup mỗi ngày một 
 | Định nghĩa user database | cùng nơi | File `roles_*.sql.gz` đi kèm mỗi bản backup |
 | Cấu hình toàn hệ thống | repo Git trên GitHub | Có bản sao ở GitHub và trên cả 3 VM |
 | Secret | `group_vars/all/vault.yml` đã mã hoá | Trong repo; khoá giải mã nằm ở `~/.ssh`-level trên máy Mac |
-| Dữ liệu MinIO | volume `minio_data` trên VM2 | Mirror sang VM3 lúc 2:30 sáng, đóng gói `.tar.gz` giữ 7 ngày |
+| Dữ liệu MinIO | volume `minio_data` trên VM2 | Mirror sang VM3 lúc 2:30 sáng, giữ 7 ngày, kiểm chứng khôi phục hàng tuần |
 
 ## Kịch bản 1: Mất dữ liệu PostgreSQL
 
@@ -119,7 +119,6 @@ Mất mát tối đa: các file DAG đẩy lên kể từ 2:30 sáng của ngày
 
 | Điểm yếu | Hậu quả | Hướng xử lý |
 |---|---|---|
-| **Kiểm chứng khôi phục MinIO chưa tự động** | Đã diễn tập tay ngày 17/09/2026: 17/17 object vào một MinIO trắng, md5 khớp, dưới 1 giây. Nhưng `restore-test.sh` hằng tuần vẫn chỉ kiểm chứng PostgreSQL | Mở rộng `restore-test.sh` sang cả MinIO |
 | **Backup nằm cùng máy vật lý với dữ liệu gốc** | Mất máy Mac là mất cả dữ liệu lẫn backup | Đồng bộ thư mục backup ra ổ ngoài hoặc dịch vụ lưu trữ khác |
 | **Khoá vault chỉ có trên máy Mac** | Mất máy là không giải mã được secret | Cất bản sao khoá trong trình quản lý mật khẩu |
 | **Cài OS chưa tự động hoá** | Chiếm phần lớn RTO kịch bản 3 | Tạo sẵn một VM mẫu trong UTM để nhân bản |
