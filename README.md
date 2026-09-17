@@ -179,7 +179,8 @@ assumed was fine.
 
 Written down deliberately — a system is only trustworthy if its gaps are known:
 
-- **MinIO data is not backed up.** Losing the `minio_data` volume loses the data lake.
+- **MinIO backups live on the same lab network.** Objects are mirrored nightly from VM2 to VM3 and
+  archived there, so losing the `minio_data` volume is recoverable, but losing the laptop is not.
 - **Backups live on the same physical machine as the data.** Losing the laptop loses both.
 - **The vault password exists only on the control node.**
 - **OS installation is manual**, which dominates the recovery time in the worst case.

@@ -17,6 +17,8 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+        labels:
+          vm: 'vm1'
 
   # Node Exporter VM1 (máy chủ Airflow)
   - job_name: 'node-exporter-vm1'
@@ -43,9 +45,15 @@ scrape_configs:
           role: 'worker-backup'
 
   # cAdvisor – metrics container Docker
+  # Nhãn vm là thứ luật inhibit của Alertmanager dùng để biết alert nào nói về
+  # cùng một máy. Nhãn instance KHÔNG dùng được: mỗi exporter trên VM1 có một
+  # chuỗi instance khác nhau (node-exporter:9100, cadvisor:8080,
+  # postgres-exporter:9187) nên không bao giờ khớp nhau.
   - job_name: 'cadvisor'
     static_configs:
       - targets: ['cadvisor:8080']
+        labels:
+          vm: 'vm1'
 
   # PostgreSQL Exporter (VM2)
   - job_name: 'postgres-exporter'
@@ -59,6 +67,8 @@ scrape_configs:
   - job_name: 'blackbox-exporter'
     static_configs:
       - targets: ['blackbox-exporter:9115']
+        labels:
+          vm: 'vm1'
 
   # Gọi thật vào từng endpoint qua đường mà người dùng đi
   - job_name: 'blackbox-http'

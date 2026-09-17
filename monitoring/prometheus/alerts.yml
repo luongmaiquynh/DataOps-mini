@@ -111,6 +111,32 @@ groups:
           runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupRestoreTestFailed.md"
           description: "Lần kiểm chứng restore gần nhất thất bại. Backup hiện không dùng được."
 
+      # MinIO chứa file raw của data lake. pg_dump không cứu được nó, nên nó
+      # có bộ cảnh báo riêng.
+      - alert: MinioBackupStale
+        expr: time() - dataops_minio_backup_last_success_timestamp_seconds > 26 * 3600
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sao lưu MinIO đã quá hạn"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/MinioBackupStale.md
+          description: >-
+            Bản sao lưu MinIO thành công gần nhất cách đây {{ $value | humanizeDuration }}.
+
+      - alert: MinioBackupMetricMissing
+        expr: absent(dataops_minio_backup_last_success_timestamp_seconds)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Không thấy metric sao lưu MinIO"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/MinioBackupMetricMissing.md
+          description: >-
+            Cron sao lưu MinIO có thể không chạy, hoặc node-exporter mất thư mục textfile.
+
       # Kiểm chứng chạy hàng tuần; quá 8 ngày là job đã ngừng.
       - alert: BackupRestoreTestStale
         expr: time() - dataops_restore_test_timestamp_seconds > 8 * 24 * 3600

@@ -97,3 +97,41 @@
     weekday: "{{ backup_restore_test_weekday }}"
     job: "{{ backup_restore_test_script }} >> {{ backup_restore_test_log }} 2>&1"
     state: present
+
+# MinIO không nằm trong pg_dump. Trước đây data lake hoàn toàn không có bản sao
+# nào: mất volume minio_data trên VM2 là mất hết file raw.
+- name: Create MinIO backup directory
+  ansible.builtin.file:
+    path: "{{ backup_minio_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Install MinIO backup script
+  ansible.builtin.copy:
+    src: "{{ app_dir }}/backup/backup-minio.sh"
+    dest: "{{ backup_minio_script }}"
+    remote_src: true
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Ensure MinIO backup log file exists
+  ansible.builtin.file:
+    path: "{{ backup_minio_log }}"
+    state: touch
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+
+- name: Schedule daily MinIO backup
+  ansible.builtin.cron:
+    name: Daily MinIO backup
+    user: "{{ app_user }}"
+    minute: "{{ backup_minio_minute }}"
+    hour: "{{ backup_minio_hour }}"
+    job: "{{ backup_minio_script }} >> {{ backup_minio_log }} 2>&1"
+    state: present

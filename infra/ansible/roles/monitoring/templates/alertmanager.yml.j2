@@ -68,11 +68,17 @@ inhibit_rules:
   #
   # Luật cũ đòi alert critical và warning phải TRÙNG TÊN mới nín, mà mỗi tên alert
   # chỉ có một mức severity cố định, nên nó chưa từng có tác dụng lần nào.
+  #
+  # Bản sửa đầu tiên dùng equal: ['instance'] cũng vẫn vô tác dụng: instance là
+  # địa chỉ của TARGET chứ không phải của máy, nên ba exporter trên VM1 mang ba
+  # giá trị khác nhau (node-exporter:9100, cadvisor:8080, postgres-exporter:9187)
+  # và không bao giờ khớp nhau. Nay dùng nhãn `vm` mà prometheus.yml gán cho mọi
+  # target, tức là "cùng một máy" theo đúng nghĩa.
   - source_matchers:
       - alertname = "InstanceDown"
     target_matchers:
       - severity =~ "warning|critical"
-    equal: ['instance']
+    equal: ['vm']
 
   # Database chết thì endpoint phụ thuộc nó hỏng theo, không cần báo riêng.
   - source_matchers:

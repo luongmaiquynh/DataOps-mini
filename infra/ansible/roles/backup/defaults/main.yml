@@ -9,3 +9,8 @@ backup_restore_test_log: /var/log/dataops-restore-test.log
 backup_restore_test_weekday: "0"      # 0 = Chủ nhật
 backup_restore_test_hour: "3"
 backup_textfile_dir: /var/lib/node_exporter/textfile
+backup_minio_script: /home/dataops/backup-minio.sh
+backup_minio_dir: /opt/backup/minio
+backup_minio_log: /var/log/dataops-minio-backup.log
+backup_minio_hour: "2"
+backup_minio_minute: "30"      # sau backup database 30 phút, tránh chạy chồng

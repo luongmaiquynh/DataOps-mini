@@ -22,7 +22,7 @@ RPO 24 giờ là hệ quả trực tiếp của việc backup mỗi ngày một 
 | Định nghĩa user database | cùng nơi | File `roles_*.sql.gz` đi kèm mỗi bản backup |
 | Cấu hình toàn hệ thống | repo Git trên GitHub | Có bản sao ở GitHub và trên cả 3 VM |
 | Secret | `group_vars/all/vault.yml` đã mã hoá | Trong repo; khoá giải mã nằm ở `~/.ssh`-level trên máy Mac |
-| **Dữ liệu MinIO** | volume `minio_data` trên VM2 | **KHÔNG được backup — xem phần điểm yếu** |
+| Dữ liệu MinIO | volume `minio_data` trên VM2 | Mirror sang VM3 lúc 2:30 sáng, đóng gói `.tar.gz` giữ 7 ngày |
 
 ## Kịch bản 1: Mất dữ liệu PostgreSQL
 
@@ -82,7 +82,36 @@ cũng mất thì làm tiếp Kịch bản 1.
 Bước 1 và 2 là thao tác tay trong giao diện UTM, chiếm phần lớn thời gian của RTO
 30 phút.
 
-## Kịch bản 4: Mất máy Mac
+## Kịch bản 4: Mất dữ liệu MinIO
+
+Dấu hiệu: bucket rỗng, DAG báo lỗi khi đẩy file, hoặc volume `minio_data` hỏng.
+
+```bash
+# 1. Lấy bản chụp mới nhất trên VM3
+ssh dataops@192.168.64.4 'ls -t /opt/backup/minio/minio_*.tar.gz | head -1'
+
+# 2. Giải nén ra thư mục tạm ngay trên VM3
+ssh dataops@192.168.64.4 'mkdir -p /tmp/minio-restore && \
+  tar xzf $(ls -t /opt/backup/minio/minio_*.tar.gz | head -1) -C /tmp/minio-restore'
+
+# 3. Đổ ngược vào MinIO đang chạy trên VM2
+#    (đọc user/pass từ .env, không gõ tay mật khẩu vào dòng lệnh)
+ssh dataops@192.168.64.4 'set -a; . /home/dataops/dataops/.env; set +a; \
+  docker run --rm --user "$(id -u):$(id -g)" \
+    -e MC_CONFIG_DIR=/tmp/.mc -e U="$MINIO_ROOT_USER" -e P="$MINIO_ROOT_PASSWORD" \
+    -v /tmp/minio-restore:/restore --entrypoint sh \
+    quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z -c \
+    "mc alias set lake http://$MINIO_HOST:$MINIO_PORT \"\$U\" \"\$P\" && \
+     mc mirror --overwrite /restore/$MINIO_BUCKET lake/$MINIO_BUCKET"'
+
+# 4. Đối chiếu số object
+ssh dataops@192.168.64.4 'find /tmp/minio-restore -type f | wc -l'
+curl -sk "https://prometheus.dataops.test/api/v1/query?query=dataops_minio_backup_objects"
+```
+
+Mất mát tối đa: các file DAG đẩy lên kể từ 2:30 sáng của ngày hôm đó.
+
+## Kịch bản 5: Mất máy Mac
 
 Đây là kịch bản tệ nhất và **hiện chưa khôi phục được hoàn toàn**. Xem phần dưới.
 
@@ -90,7 +119,7 @@ Bước 1 và 2 là thao tác tay trong giao diện UTM, chiếm phần lớn th
 
 | Điểm yếu | Hậu quả | Hướng xử lý |
 |---|---|---|
-| **MinIO không được backup** | Mất toàn bộ data lake nếu hỏng volume `minio_data` | Thêm `mc mirror` vào script backup |
+| **Khôi phục MinIO chưa diễn tập** | Bản sao đã có và tự kiểm tra đọc lại được, nhưng chưa thử đổ ngược vào một MinIO trắng | Thêm một kịch bản vào `docs/chaos-drills.md` |
 | **Backup nằm cùng máy vật lý với dữ liệu gốc** | Mất máy Mac là mất cả dữ liệu lẫn backup | Đồng bộ thư mục backup ra ổ ngoài hoặc dịch vụ lưu trữ khác |
 | **Khoá vault chỉ có trên máy Mac** | Mất máy là không giải mã được secret | Cất bản sao khoá trong trình quản lý mật khẩu |
 | **Cài OS chưa tự động hoá** | Chiếm phần lớn RTO kịch bản 3 | Tạo sẵn một VM mẫu trong UTM để nhân bản |
