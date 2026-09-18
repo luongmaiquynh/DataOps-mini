@@ -39,6 +39,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # gitleaks cần toàn bộ lịch sử, không chỉ commit mới nhất
+          fetch-depth: 0
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v7
@@ -51,6 +54,14 @@ jobs:
           pip install --upgrade pip
           pip install yamllint ansible-lint
           ansible-galaxy collection install -r infra/ansible/requirements.yml
+
+      # Repo công khai: lỡ commit nhầm một mật khẩu thì CI phải đỏ ngay, không đợi
+      # người khác phát hiện. Quét cả lịch sử; báo động giả đã xem xét nằm trong
+      # .gitleaksignore kèm lý do.
+      - name: Scan for secrets
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --redact --no-banner
 
       - name: Lint YAML
         run: yamllint .

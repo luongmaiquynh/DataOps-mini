@@ -1,0 +1,6 @@
+# Báo động giả đã xem xét tay. Mỗi dòng: <commit>:<file>:<luật>:<dòng>
+#
+# generic-api-key: dòng này là mô tả DAG
+#   description='Ingest dữ liệu thời tiết Hà Nội từ Open-Meteo API'
+# không phải khoá API. Luật chung của gitleaks bắt chữ "API" đứng cạnh chuỗi dài.
+718a5dc7c91d856dd19050ca5a917068f4f9ddde:pipeline/dags/ingest_api_dag.py:generic-api-key:76
