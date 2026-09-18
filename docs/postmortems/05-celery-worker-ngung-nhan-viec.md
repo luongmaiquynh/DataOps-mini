@@ -148,6 +148,9 @@ phải cấu hình. Thử lần lượt các bản vá tương thích Python 3.8
 Sửa: ghim `celery==5.4.0` và `kombu==5.4.2` trong `docker/airflow/requirements.txt`.
 `pip check` không phát sinh xung đột mới; executor của Airflow import được.
 
+Kiểm chứng sau khi triển khai lên VM1: khởi động lại Redis thật 3 lần liên tiếp, worker
+vẫn lấy việc sau mỗi lần, và một DAG chạy thật ngay sau đó thành công.
+
 ### Điều chưa giải thích được
 
 - Lần khởi động lại Redis lúc 15:47 ngày 18/09 **không** làm hỏng worker. Lỗi không xảy

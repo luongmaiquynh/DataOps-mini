@@ -206,6 +206,7 @@ Kết quả 19/09/2026:
 | App Celery tối giản + Redis tạm, cùng image | Tái hiện 5/5 lần: lỗi nằm ở thư viện, không ở cấu hình Airflow hay mạng lab |
 | Thử các bản vá | kombu 5.3.7: hỏng. Celery 5.3.6 + kombu 5.3.7: sống qua 1 lần rồi hỏng. **Celery 5.4.0 + kombu 5.4.2: 5/5 lần sống**, với cả redis-py 4.6.0 và 5.0.8 |
 | Chạy task thật sau mỗi lần khởi động lại Redis | Bản cũ **0/5**, bản mới **5/5** |
+| **Sau khi triển khai Celery 5.4.0 lên VM1** | Khởi động lại Redis thật 3 lần, mỗi lần chờ 60 giây: luôn còn 1 consumer sống, hàng đợi 0. Chạy `data_quality_check` ngay sau đó: `success` trong 12 giây |
 
 Khởi động lại Redis một lần lúc 15:47 ngày 18/09 không làm hỏng worker, nên lỗi không
 xảy ra 100% trên hệ thống thật — nhưng đủ thường để một lần bảo trì VM2 là dính.
