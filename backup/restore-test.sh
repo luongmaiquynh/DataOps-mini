@@ -74,7 +74,7 @@ write_minio_metrics() {
     } > "$tmp" && mv "$tmp" "$MINIO_METRIC_FILE"
 }
 
-# shellcheck disable=SC2329  # được gọi gián tiếp qua trap EXIT bên dưới
+# shellcheck disable=SC2317,SC2329  # SC2317 là mã của shellcheck bản cũ; được gọi gián tiếp qua trap EXIT bên dưới
 cleanup() {
     docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
     docker rm -f "$MINIO_CONTAINER" >/dev/null 2>&1 || true

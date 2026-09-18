@@ -12,8 +12,11 @@ trả lời `ping`, `docker ps` vẫn báo `Up`, nhưng pipeline đã chết 25 
 ## Kiểm tra
 
 ```bash
-# 1. Xác nhận trực tiếp ở Redis — đây là nguồn sự thật, không phải worker
-ssh dataops@192.168.64.3 'docker exec redis_cache sh -c "redis-cli -a \$REDIS_PASSWORD --no-auth-warning CLIENT LIST" | grep -c "cmd=brpop"'
+# 1. Xác nhận trực tiếp ở Redis — đây là nguồn sự thật, không phải worker.
+#    Xem cột idle: worker khỏe gọi BRPOP mỗi giây nên idle là 0-1. Kết nối vẫn
+#    mang cmd=brpop nhưng idle hàng trăm giây nghĩa là nó đã ngừng lấy việc —
+#    cmd chỉ là lệnh CUỐI CÙNG, không phải việc đang làm.
+ssh dataops@192.168.64.3 'docker exec redis_cache sh -c "redis-cli -a \$REDIS_PASSWORD --no-auth-warning CLIENT LIST" | grep "cmd=brpop" | grep -oE "(addr|idle)=[^ ]+"'
 
 # 2. Worker có còn chạy không (câu trả lời "có" KHÔNG loại trừ được sự cố này)
 ssh dataops@192.168.64.2 'docker ps --filter name=airflow_worker'

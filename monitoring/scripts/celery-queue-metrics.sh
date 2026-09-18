@@ -56,9 +56,15 @@ from sqlalchemy import create_engine, text
 queue = os.environ.get("PROBE_QUEUE", "default")
 r = redis.from_url(os.environ["AIRFLOW__CELERY__BROKER_URL"])
 qlen = r.llen(queue)
-# Đây chính là bằng chứng quyết định của sự cố 16/09: worker còn sống, vẫn trả
-# lời inspect, nhưng không còn kết nối nào chặn ở BRPOP để lấy việc.
-consumers = sum(1 for c in r.client_list() if c.get("cmd") == "brpop")
+# Đếm kết nối đang THẬT SỰ lấy việc. Cột `cmd` của CLIENT LIST chỉ là lệnh CUỐI
+# CÙNG kết nối đã chạy, không phải việc nó đang làm: diễn tập ngày 18/09 cho thấy
+# worker đã ngừng lấy việc mà kết nối vẫn mang cmd=brpop, chỉ có `idle` là tăng
+# mãi (1099 giây). Worker khỏe gọi BRPOP khoảng mỗi giây nên idle luôn 0-1 giây.
+max_idle = int(os.environ.get("PROBE_MAX_IDLE", "30"))
+consumers = sum(
+    1 for c in r.client_list()
+    if c.get("cmd") == "brpop" and int(c.get("idle", 0)) < max_idle
+)
 
 engine = create_engine(os.environ["AIRFLOW__DATABASE__SQL_ALCHEMY_CONN"])
 with engine.connect() as conn:
