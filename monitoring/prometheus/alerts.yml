@@ -70,7 +70,8 @@ groups:
           severity: warning
         annotations:
           summary: "Container {{ $labels.name }} restart liên tục"
-          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/ContainerRestartingTooMuch.md"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/ContainerRestartingTooMuch.md
           description: "Container restart >= 3 lần trong 15 phút."
 
   - name: backup
@@ -108,7 +109,8 @@ groups:
           severity: critical
         annotations:
           summary: "Bản backup không restore được"
-          runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupRestoreTestFailed.md"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupRestoreTestFailed.md
           description: "Lần kiểm chứng restore gần nhất thất bại. Backup hiện không dùng được."
 
       # MinIO chứa file raw của data lake. pg_dump không cứu được nó, nên nó
