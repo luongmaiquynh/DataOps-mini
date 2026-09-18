@@ -31,4 +31,4 @@
   loop: "{{ github_runner_units.files }}"
   loop_control:
     label: "{{ item.path | basename }}"
-  notify: Reload systemd
+  notify: Reload systemd for runner drop-in

@@ -1,4 +1,7 @@
 ---
-- name: Reload systemd
+# Tên riêng: handler trùng tên giữa các role thì Ansible chỉ giữ một cái. Lần
+# đầu handler của runner đã được chạy dưới tên compose_units — đúng việc nhưng
+# chỉ là tình cờ.
+- name: Reload systemd for runner drop-in
   ansible.builtin.systemd:
     daemon_reload: true
