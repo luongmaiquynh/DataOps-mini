@@ -190,9 +190,11 @@ Written down deliberately — a system is only trustworthy if its gaps are known
 - **Backups live on the same physical machine as the data.** Losing the laptop loses both.
 - **The vault password exists only on the control node.**
 - **OS installation is manual**, which dominates the recovery time in the worst case.
-- **Airflow still uses its default admin account**, and Airflow metadata shares a
-  database with pipeline data.
-- **RAM allocation exceeds physical memory** and has not yet been right-sized.
+- **Airflow metadata shares a database with pipeline data** — restoring one part pulls
+  in the other.
+- **The lab only runs while the laptop is awake.** Sleep freezes all three VMs: DAGs
+  fall behind schedule, backups miss their window, and the dead man's switch fires a
+  false DOWN. A limit of running on a laptop, not something a config change fixes.
 
 ## Documentation
 
