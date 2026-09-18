@@ -22,6 +22,7 @@ repeatable procedure in [docs/chaos-drills.md](docs/chaos-drills.md).
 | Monitoring-of-the-monitoring | Stopped Alertmanager for 17 min → external dead man's switch emailed after **14.5 min** |
 | Alert noise is controlled | Injected a host-down alert: every other alert for that host moved to `suppressed`, while the same alert on a different host stayed `active` |
 | Alerts are unit-tested | `promtool test rules` replays synthetic metrics in CI; reverting a threshold bug that made one alert unreachable turns the suite red |
+| Silent worker death is caught | Reproduced the 25.5 h incident (worker alive, answering pings, not consuming) → alert fired and paged in **11.5 min** |
 | Services survive reboot | Removed every container, rebooted the host → systemd brought the stack back with no manual step |
 | Dashboards survive volume loss | Deleted the Grafana volume → datasources and dashboards restored from files in this repo |
 | Deployment is not network-bound | Airflow cold start cut from **419 s → 17 s** by baking dependencies into a pinned image |

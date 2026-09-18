@@ -51,6 +51,8 @@ write_metrics() {
 OUT=$(docker exec -i -e PROBE_QUEUE="$QUEUE" "$CONTAINER" python - <<'PY' 2>/dev/null
 import os
 import redis
+from datetime import datetime, timezone
+
 from sqlalchemy import create_engine, text
 
 queue = os.environ.get("PROBE_QUEUE", "default")
@@ -66,12 +68,18 @@ consumers = sum(
     if c.get("cmd") == "brpop" and int(c.get("idle", 0)) < max_idle
 )
 
+# Tính tuổi bằng đồng hồ của CHÍNH máy đã ghi queued_dttm (scheduler, VM1), không
+# dùng now() của PostgreSQL trên VM2. Ngày 18/09, ngay sau khi máy Mac ngủ dậy,
+# đồng hồ hai VM lệch nhau 11 phút trước khi NTP kịp chỉnh, và tuổi task ra âm
+# 647 giây.
 engine = create_engine(os.environ["AIRFLOW__DATABASE__SQL_ALCHEMY_CONN"])
 with engine.connect() as conn:
-    age = conn.execute(text(
-        "SELECT COALESCE(EXTRACT(EPOCH FROM (now() - min(queued_dttm))), 0) "
-        "FROM task_instance WHERE state = 'queued'"
+    oldest = conn.execute(text(
+        "SELECT min(queued_dttm) FROM task_instance WHERE state = 'queued'"
     )).scalar()
+age = 0
+if oldest is not None:
+    age = max(0, (datetime.now(timezone.utc) - oldest).total_seconds())
 
 print(int(qlen), int(age or 0), int(consumers))
 PY

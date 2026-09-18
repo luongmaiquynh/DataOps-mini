@@ -94,6 +94,16 @@ chạm ngưỡng. Lỗi lộ ra khi đối chiếu ngưỡng với cấu hình t
 mô phỏng chuỗi số liệu theo thời gian và khẳng định alert phải bật đúng lúc. Đã thử
 nghịch — trả ngưỡng về 900 thì test đỏ.
 
+### Diễn tập xác nhận — và lộ thêm một lỗi
+
+Ngày 18/09 tái hiện sự cố bằng `celery control cancel_consumer default`. Lần thử
+đầu, `CeleryNoConsumer` **không bật suốt 20 phút**: metric đếm kết nối có
+`cmd=brpop`, nhưng `cmd` chỉ là lệnh *cuối cùng* kết nối đã chạy. Kết nối của worker
+đã ngừng vẫn mang `cmd=brpop`, chỉ có `idle` tăng lên 1099 giây. Sau khi lọc thêm
+`idle < 30` giây, lần thử thứ hai alert bật sau 11,5 phút và gửi thông báo thật.
+
+Nếu không diễn tập, alert này sẽ nằm im đúng trong tình huống nó sinh ra để bắt.
+
 ## Bài học
 
 - **Tiến trình còn sống không có nghĩa là nó còn làm việc.** Health check dựa trên

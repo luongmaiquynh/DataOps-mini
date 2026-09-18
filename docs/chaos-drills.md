@@ -24,6 +24,7 @@ một quy trình khôi phục chưa từng chạy thì chưa phải quy trình.
 | 12 | Tắt Grafana | `EndpointDown` bật đúng endpoint | 2 phút | 16/09/2026 |
 | 13 | **Khôi phục data lake vào một MinIO trắng** | 17/17 object, md5 khớp từng byte | **dưới 1 giây** | 17/09/2026 |
 | 14 | Bơm `InstanceDown` + `PostgreSQLDown` cùng nhãn `vm` vào Alertmanager | `PostgreSQLDown` chuyển sang `suppressed`; cùng alert đó ở `vm` khác vẫn `active` | ngay lập tức | 17/09/2026 |
+| 15 | **Worker ngừng lấy việc nhưng vẫn trả lời ping** (`celery control cancel_consumer`) | `CeleryNoConsumer` firing, gửi qua ntfy — lần thử đầu KHÔNG bật, lộ lỗi trong metric | **11,5 phút** | 18/09/2026 |
 
 ## Cách lặp lại từng kịch bản
 
@@ -160,6 +161,28 @@ docker exec alertmanager amtool alert add \
 Kết quả 17/09/2026: `PostgreSQLDown` vm=vm2 `suppressed` với `inhibitedBy` trỏ đúng
 `InstanceDown`; `PostgreSQLDown` vm=vm3 vẫn `active`. Alert bơm tay tự hết sau 5 phút.
 
+### 15. Worker ngừng lấy việc nhưng vẫn trả lời ping
+
+Tái hiện đúng sự cố 16/09 ([postmortem 5](postmortems/05-celery-worker-ngung-nhan-viec.md)):
+tiến trình worker vẫn sống và trả lời `inspect ping`, chỉ ngừng lấy việc khỏi hàng đợi.
+
+```bash
+CEL='docker exec airflow_worker celery -A airflow.providers.celery.executors.celery_executor.app'
+ssh dataops@192.168.64.2 "$CEL control cancel_consumer default"   # tái hiện
+ssh dataops@192.168.64.2 "$CEL inspect ping"                      # vẫn "1 node online"
+# chờ khoảng 12 phút, CeleryNoConsumer phải chuyển sang firing
+ssh dataops@192.168.64.2 "$CEL control add_consumer default"      # khôi phục
+```
+
+Kết quả 18/09/2026:
+
+| Lần | Kết quả |
+|---|---|
+| 1 | **Không bật trong 20 phút.** Metric vẫn đếm được 1 consumer, vì kết nối cũ vẫn mang `cmd=brpop` — cột `cmd` chỉ là lệnh cuối cùng, không phải việc đang làm. Kết nối đó có `idle=1099` giây, trong khi worker khỏe đo 10 lần luôn 0–1 giây |
+| 2 | Sau khi script chỉ đếm kết nối `brpop` có `idle` dưới 30 giây: consumer về 0 sau 2 phút, alert `pending`, rồi **firing lúc +11,5 phút** và Alertmanager gửi qua `ntfy`. Khôi phục xong alert tự tắt |
+
+So với sự cố thật: 25,5 giờ không ai biết, nay hệ thống tự báo sau 11,5 phút.
+
 ## Những gì diễn tập đã phát hiện
 
 Không phải kịch bản nào cũng chạy trơn. Ba lần thử đã lộ ra lỗi thật:
@@ -171,6 +194,7 @@ Không phải kịch bản nào cũng chạy trơn. Ba lần thử đã lộ ra 
 | Cảnh báo chứng chỉ TLS | Ngưỡng 7 ngày trong khi chứng chỉ chỉ có hạn 12 giờ — alert firing vĩnh viễn |
 | Sao lưu MinIO lần đầu | Container chạy bằng root nên toàn bộ file mirror thuộc root, user thường không xoá hay ghi đè được nữa |
 | Đọc nhãn thật của từng target | Luật inhibit dùng `equal: ['instance']` chưa bao giờ khớp được: `instance` là địa chỉ của target, nên ba exporter trên cùng VM1 mang ba giá trị khác nhau |
+| Tái hiện worker chết im lặng | Metric đếm consumer theo cột `cmd` của Redis nên vẫn báo 1 consumer khi worker đã ngừng lấy việc — alert viết ra để bắt đúng sự cố này lại không bắt được nó |
 
 Đó chính là lý do phải diễn tập: cấu hình sai thường im lặng, và hệ thống vẫn
 báo xanh cho tới lúc thật sự cần tới nó.
@@ -184,4 +208,5 @@ báo xanh cho tới lúc thật sự cần tới nó.
 | Kịch bản 9, 10 (dựng lại và khôi phục) | Mỗi quý |
 | Kịch bản 13 (khôi phục MinIO) | Mỗi quý |
 | Kịch bản 14 (luật inhibit) | Sau mỗi lần sửa luật cảnh báo |
+| Kịch bản 15 (worker chết im lặng) | Sau mỗi lần nâng cấp Airflow hoặc Celery |
 | Toàn bộ danh sách | Sau mỗi thay đổi lớn về hạ tầng |
