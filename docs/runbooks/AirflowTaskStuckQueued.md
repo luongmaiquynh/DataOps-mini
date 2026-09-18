@@ -1,6 +1,9 @@
 # Runbook: AirflowTaskStuckQueued
 
-**Mức độ:** critical · **Điều kiện kích hoạt:** Có task Airflow nằm ở trạng thái `queued` quá 15 phút
+**Mức độ:** critical · **Điều kiện kích hoạt:** Có task Airflow nằm ở trạng thái `queued` quá 5 phút
+
+Ngưỡng cố ý thấp hơn `task_queued_timeout` của Airflow (600 giây): quá mốc đó scheduler tự đánh dấu
+task hỏng, tuổi task quay về 0, và alert sẽ không bao giờ có cơ hội bật.
 
 ## Ảnh hưởng
 

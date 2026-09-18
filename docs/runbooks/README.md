@@ -14,7 +14,8 @@ Alertmanager là tới.
 | [EndpointDown](EndpointDown.md) | critical | Endpoint không phản hồi khi gọi thử |
 | [MinioBackupStale](MinioBackupStale.md) | critical | Quá 26 giờ không sao lưu MinIO |
 | [MinioRestoreTestFailed](MinioRestoreTestFailed.md) | critical | Bản sao MinIO không khôi phục được |
-| [AirflowTaskStuckQueued](AirflowTaskStuckQueued.md) | critical | Task nằm chờ quá 15 phút |
+| [CeleryNoConsumer](CeleryNoConsumer.md) | critical | Không còn worker nào lấy việc |
+| [AirflowTaskStuckQueued](AirflowTaskStuckQueued.md) | critical | Task nằm chờ quá 5 phút |
 | [HighCpuUsage](HighCpuUsage.md) | warning | CPU trên 80% |
 | [DiskSpaceLow](DiskSpaceLow.md) | warning | Đĩa còn dưới 15% |
 | [ContainerRestartingTooMuch](ContainerRestartingTooMuch.md) | warning | Container crash-loop |

@@ -21,6 +21,7 @@ repeatable procedure in [docs/chaos-drills.md](docs/chaos-drills.md).
 | Data lake restore | Nightly MinIO archive replayed into a blank instance → **17/17 objects**, md5 identical, under 1 s |
 | Monitoring-of-the-monitoring | Stopped Alertmanager for 17 min → external dead man's switch emailed after **14.5 min** |
 | Alert noise is controlled | Injected a host-down alert: every other alert for that host moved to `suppressed`, while the same alert on a different host stayed `active` |
+| Alerts are unit-tested | `promtool test rules` replays synthetic metrics in CI; reverting a threshold bug that made one alert unreachable turns the suite red |
 | Services survive reboot | Removed every container, rebooted the host → systemd brought the stack back with no manual step |
 | Dashboards survive volume loss | Deleted the Grafana volume → datasources and dashboards restored from files in this repo |
 | Deployment is not network-bound | Airflow cold start cut from **419 s → 17 s** by baking dependencies into a pinned image |
@@ -137,7 +138,7 @@ metric, so a broken backup raises an alert instead of sitting silently in a log.
 
 ## Alerting
 
-19 rules, each carrying a `runbook_url` that points at a specific procedure in
+20 rules, each carrying a `runbook_url` that points at a specific procedure in
 [docs/runbooks/](docs/runbooks/) — the person paged at 2 a.m. gets instructions, not
 just a red dot.
 

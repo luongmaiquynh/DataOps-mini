@@ -25,7 +25,7 @@ QUEUE="${CELERY_QUEUE:-default}"
 CONTAINER="${CELERY_PROBE_CONTAINER:-airflow_scheduler}"
 
 write_metrics() {
-    local success="$1" qlen="${2:-0}" age="${3:-0}"
+    local success="$1" qlen="${2:-0}" age="${3:-0}" consumers="${4:-0}"
     [ -d "$TEXTFILE_DIR" ] || return 0
     local tmp="$METRIC_FILE.$$"
     {
@@ -39,6 +39,9 @@ write_metrics() {
             echo "# HELP dataops_airflow_queued_task_age_seconds Task Airflow đang chờ lâu nhất đã chờ bao lâu"
             echo "# TYPE dataops_airflow_queued_task_age_seconds gauge"
             echo "dataops_airflow_queued_task_age_seconds $age"
+            echo "# HELP dataops_celery_consumers Số kết nối đang chặn ở BRPOP để chờ lấy việc"
+            echo "# TYPE dataops_celery_consumers gauge"
+            echo "dataops_celery_consumers $consumers"
         fi
     } > "$tmp" && mv "$tmp" "$METRIC_FILE"
 }
@@ -51,7 +54,11 @@ import redis
 from sqlalchemy import create_engine, text
 
 queue = os.environ.get("PROBE_QUEUE", "default")
-qlen = redis.from_url(os.environ["AIRFLOW__CELERY__BROKER_URL"]).llen(queue)
+r = redis.from_url(os.environ["AIRFLOW__CELERY__BROKER_URL"])
+qlen = r.llen(queue)
+# Đây chính là bằng chứng quyết định của sự cố 16/09: worker còn sống, vẫn trả
+# lời inspect, nhưng không còn kết nối nào chặn ở BRPOP để lấy việc.
+consumers = sum(1 for c in r.client_list() if c.get("cmd") == "brpop")
 
 engine = create_engine(os.environ["AIRFLOW__DATABASE__SQL_ALCHEMY_CONN"])
 with engine.connect() as conn:
@@ -60,7 +67,7 @@ with engine.connect() as conn:
         "FROM task_instance WHERE state = 'queued'"
     )).scalar()
 
-print(int(qlen), int(age or 0))
+print(int(qlen), int(age or 0), int(consumers))
 PY
 )
 
@@ -72,7 +79,8 @@ fi
 
 QLEN=$(echo "$OUT" | awk '{print $1}')
 AGE=$(echo "$OUT" | awk '{print $2}')
-case "$QLEN$AGE" in
+CONSUMERS=$(echo "$OUT" | awk '{print $3}')
+case "$QLEN$AGE$CONSUMERS" in
     *[!0-9]*)
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] Kết quả không phải số: $OUT"
         write_metrics 0
@@ -80,5 +88,5 @@ case "$QLEN$AGE" in
         ;;
 esac
 
-write_metrics 1 "$QLEN" "$AGE"
+write_metrics 1 "$QLEN" "$AGE" "$CONSUMERS"
 exit 0

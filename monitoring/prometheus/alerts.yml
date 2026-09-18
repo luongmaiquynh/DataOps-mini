@@ -167,9 +167,28 @@ groups:
     rules:
       # Sự cố 17/09/2026: worker ngừng lấy việc 25,5 giờ mà mọi phép đo đều báo
       # xanh, vì không phép đo nào hỏi "hàng đợi có vơi không".
+      #
+      # Bắt đúng nguyên nhân gốc: không còn kết nối nào chờ lấy việc. Đo được cả
+      # khi hệ thống đang rảnh, không cần đợi có task mới vào hàng đợi.
+      - alert: CeleryNoConsumer
+        expr: dataops_celery_consumers == 0
+        for: 10m
+        labels:
+          severity: critical
+          vm: vm1
+        annotations:
+          summary: "Không còn worker nào lấy việc khỏi hàng đợi"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/CeleryNoConsumer.md
+          description: >-
+            Redis không có kết nối nào chờ ở BRPOP. Task mới sẽ nằm chờ mãi dù worker vẫn trả lời ping.
+
+      # Ngưỡng PHẢI thấp hơn task_queued_timeout của Airflow (600 giây): quá mốc
+      # đó scheduler tự đánh dấu task hỏng và tuổi task quay về 0. Bản đầu đặt
+      # 900 giây nên alert này không bao giờ bật được.
       - alert: AirflowTaskStuckQueued
-        expr: dataops_airflow_queued_task_age_seconds > 900
-        for: 5m
+        expr: dataops_airflow_queued_task_age_seconds > 300
+        for: 2m
         labels:
           severity: critical
           vm: vm1

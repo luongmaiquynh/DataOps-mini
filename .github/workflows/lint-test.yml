@@ -114,3 +114,13 @@ jobs:
           docker run --rm --entrypoint promtool \
             -v "$PWD/monitoring/prometheus:/cfg" \
             prom/prometheus:v3.11.3 check rules /cfg/alerts.yml
+
+      # Kiểm cú pháp là không đủ: bản đầu của AirflowTaskStuckQueued qua được
+      # check rules nhưng đặt ngưỡng cao hơn mốc Airflow tự huỷ task, tức là
+      # không bao giờ bật. Unit test mô phỏng số liệu theo thời gian và khẳng
+      # định alert phải bật đúng lúc.
+      - name: Unit-test alert rules
+        run: |
+          docker run --rm --entrypoint promtool \
+            -v "$PWD/monitoring/prometheus:/cfg" \
+            prom/prometheus:v3.11.3 test rules /cfg/tests/pipeline.test.yml

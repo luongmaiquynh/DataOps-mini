@@ -71,9 +71,28 @@ Khắc phục tức thời: `docker restart airflow_worker`. Worker đăng ký l
 2 giây và bắt đầu tiêu thụ hàng đợi ngay.
 
 Nhưng khắc phục không phải bài học. Bài học là **hệ thống không có cách nào tự biết
-điều này**. Việc cần làm là thêm một phép đo trả lời đúng câu hỏi "việc có chạy
-không": độ dài hàng đợi Celery và tuổi của task đang chờ lâu nhất, đẩy vào Prometheus
-qua textfile collector, kèm cảnh báo khi hàng đợi không vơi.
+điều này**. Đã thêm một script chạy mỗi phút trên VM1, đẩy ba số đo vào Prometheus
+qua textfile collector:
+
+| Metric | Trả lời câu hỏi | Alert |
+|---|---|---|
+| `dataops_celery_consumers` | Còn ai chờ lấy việc không (đếm client ở `BRPOP`) | `CeleryNoConsumer` sau 10 phút |
+| `dataops_airflow_queued_task_age_seconds` | Task chờ lâu nhất đã chờ bao lâu | `AirflowTaskStuckQueued` trên 300 giây |
+| `dataops_celery_queue_length` | Hàng đợi có đang dồn không | `CeleryQueueBacklog` trên 20 việc |
+
+`CeleryNoConsumer` đo thẳng bằng chứng quyết định của sự cố này, và bật được cả khi
+hệ thống đang rảnh — không cần đợi có task mới vào hàng đợi.
+
+### Một lỗi trong chính bản sửa
+
+Bản đầu của `AirflowTaskStuckQueued` đặt ngưỡng 900 giây. Nó qua được
+`promtool check rules`, nhưng **không bao giờ bật được**: Airflow tự đánh dấu hỏng
+task nằm chờ quá 600 giây (`task_queued_timeout`), nên tuổi task quay về 0 trước khi
+chạm ngưỡng. Lỗi lộ ra khi đối chiếu ngưỡng với cấu hình thật của scheduler.
+
+Để không lặp lại, nhóm alert này có unit test (`promtool test rules`) chạy trong CI:
+mô phỏng chuỗi số liệu theo thời gian và khẳng định alert phải bật đúng lúc. Đã thử
+nghịch — trả ngưỡng về 900 thì test đỏ.
 
 ## Bài học
 

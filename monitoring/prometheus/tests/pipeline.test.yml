@@ -1,0 +1,99 @@
+---
+# Unit test cho nhóm alert `pipeline`: mô phỏng chuỗi số liệu theo thời gian rồi
+# khẳng định alert nào phải bật, vào lúc nào. Kiểm cú pháp thôi là không đủ: bản
+# đầu của AirflowTaskStuckQueued qua được promtool check nhưng đặt ngưỡng 900 giây,
+# cao hơn mốc 600 giây mà Airflow tự huỷ task — tức là không bao giờ bật được.
+#
+# Chạy: promtool test rules monitoring/prometheus/tests/pipeline.test.yml
+rule_files:
+  - ../alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Tái hiện sự cố 16/09: worker còn sống nhưng không còn kết nối nào lấy việc.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_celery_consumers'
+        values: '1 1 0x20'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: CeleryNoConsumer
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: CeleryNoConsumer
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              vm: vm1
+            exp_annotations:
+              summary: "Không còn worker nào lấy việc khỏi hàng đợi"
+              runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/CeleryNoConsumer.md"
+              description: >-
+                Redis không có kết nối nào chờ ở BRPOP. Task mới sẽ nằm chờ mãi dù worker vẫn trả lời ping.
+
+  # Worker khoẻ thì không được báo gì.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_celery_consumers'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CeleryNoConsumer
+        exp_alerts: []
+
+  # Tuổi task tăng 60 giây mỗi phút; phải bật TRƯỚC mốc 600 giây Airflow tự huỷ.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_airflow_queued_task_age_seconds'
+        values: '0+60x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AirflowTaskStuckQueued
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: AirflowTaskStuckQueued
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              vm: vm1
+            exp_annotations:
+              summary: "Task Airflow nằm chờ quá lâu"
+              runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/AirflowTaskStuckQueued.md"
+              description: "Task chờ lâu nhất đã chờ 8m 0s mà chưa được worker nhận."
+
+  - interval: 1m
+    input_series:
+      - series: 'dataops_celery_queue_length'
+        values: '25x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CeleryQueueBacklog
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: CeleryQueueBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              vm: vm1
+            exp_annotations:
+              summary: "Hàng đợi Celery dồn việc"
+              runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/CeleryQueueBacklog.md"
+              description: "Hàng đợi còn 25 việc chưa được xử lý sau 15 phút."
+
+  # Cron ngừng chạy: không còn metric nào cả.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="unrelated"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: CeleryMetricMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              vm: vm1
+            exp_annotations:
+              summary: "Không thấy phép đo hàng đợi Celery"
+              runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/CeleryMetricMissing.md"
+              description: "Cron đo hàng đợi không chạy, hoặc node-exporter mất thư mục textfile."
