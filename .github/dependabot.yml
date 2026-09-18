@@ -1,66 +1,73 @@
 ---
-# Sau khi ghim version cho toàn bộ image, cần một cơ chế nâng cấp có kiểm soát:
-# Dependabot mở pull request khi có bản mới, CI chạy trên PR đó, xanh mới merge.
+# Nâng cấp phụ thuộc có kiểm soát: Dependabot mở PR, CI chạy trên PR, xanh mới merge.
 #
-# Chọn Dependabot thay vì Renovate vì nó chạy sẵn trên GitHub, không phải cài
-# thêm app qua giao diện web.
+# Chính sách (18/09/2026), rút ra từ 14 PR mở cùng lúc mà không cái nào an toàn để
+# merge mù:
+#   - Nâng phiên bản LỚN không bao giờ tự động. postgres 15→18 cần dump/restore
+#     (thư mục dữ liệu không tương thích), airflow 2→3 đổi cả DAG lẫn cấu hình,
+#     sqlalchemy 2.0 không chạy với Airflow 2.7. Những việc đó phải có kế hoạch,
+#     backup trước và diễn tập khôi phục — Dependabot chỉ đổi con số.
+#   - Image Airflow chạy Python 3.8.18. Nhiều thư viện bỏ 3.8 ngay ở bản nâng
+#     NHỎ (pandas 2.1+), nên thư viện pip và image Airflow chỉ nhận bản vá.
+#   - Gộp PR theo nhóm: một thay đổi image dùng ở cả 3 VM từng sinh ra 3 PR trùng
+#     nhau (node-exporter #2, #9, #11).
 version: 2
 
 updates:
-  # Image trong Dockerfile của Airflow
+  # Image trong Dockerfile của Airflow: chỉ bản vá 2.7.x
   - package-ecosystem: docker
     directory: /docker/airflow
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 3
     labels: [dependencies, docker]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
 
-  # Image trong các file compose
+  # Image trong compose của cả 3 VM, gộp chung một PR mỗi tuần
   - package-ecosystem: docker-compose
-    directory: /docker/dataops-vm1
+    directories:
+      - /docker/dataops-vm1
+      - /docker/dataops-vm2
+      - /docker/dataops-vm3
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 3
     labels: [dependencies, docker]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      compose-images:
+        patterns: ["*"]
+        update-types: [minor, patch]
 
-  - package-ecosystem: docker-compose
-    directory: /docker/dataops-vm2
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 3
-    labels: [dependencies, docker]
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker-compose
-    directory: /docker/dataops-vm3
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 3
-    labels: [dependencies, docker]
-    commit-message:
-      prefix: "chore(deps)"
-
-  # Thư viện Python cài vào image Airflow
+  # Thư viện Python trong image Airflow: chỉ bản vá (ràng buộc Python 3.8)
   - package-ecosystem: pip
     directory: /docker/airflow
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 3
     labels: [dependencies, python]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+    groups:
+      airflow-python:
+        patterns: ["*"]
 
-  # Action dùng trong workflow
+  # Action dùng trong workflow: CI tự kiểm chứng, gộp một PR mỗi tháng
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -68,3 +75,6 @@ updates:
     labels: [dependencies, ci]
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      github-actions:
+        patterns: ["*"]
