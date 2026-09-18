@@ -28,10 +28,19 @@ jobs:
           # bằng rsync, nên pull hay bị chặn bởi file local. Repo là nguồn sự
           # thật duy nhất, ghi đè là đúng ý muốn.
           git fetch origin main
+          # Không bao giờ deploy lùi. Sau khi runner chết vài tiếng, các lần CD cũ
+          # đang xếp hàng sẽ chạy trước: ngày 18/09 VM1 bị kéo từ commit mới về
+          # e035b23 rồi mới tiến lại. Commit cần deploy đã nằm trong lịch sử của
+          # commit đang chạy (tức cũ hơn) thì bỏ qua.
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          if [ "$SHA" != "$(git rev-parse HEAD)" ] && git merge-base --is-ancestor "$SHA" HEAD; then
+            echo "Bỏ qua: $SHA cũ hơn commit đang chạy $(git rev-parse --short HEAD)"
+            exit 0
+          fi
           # Deploy ĐÚNG commit vừa qua CI, không phải đầu mới nhất của main. Trước
           # đây CD của commit A (xanh) lấy luôn main, nên nếu commit B đỏ được push
           # ngay sau thì B vẫn bị deploy — cổng "CI xanh mới deploy" bị thủng.
-          git reset --hard "${{ github.event.workflow_run.head_sha }}"
+          git reset --hard "$SHA"
           docker exec airflow_scheduler airflow dags reserialize
           echo "Deploy DAGs completed at $(date)"
 
@@ -46,10 +55,19 @@ jobs:
         run: |
           cd /home/dataops/dataops
           git fetch origin main
+          # Không bao giờ deploy lùi. Sau khi runner chết vài tiếng, các lần CD cũ
+          # đang xếp hàng sẽ chạy trước: ngày 18/09 VM1 bị kéo từ commit mới về
+          # e035b23 rồi mới tiến lại. Commit cần deploy đã nằm trong lịch sử của
+          # commit đang chạy (tức cũ hơn) thì bỏ qua.
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          if [ "$SHA" != "$(git rev-parse HEAD)" ] && git merge-base --is-ancestor "$SHA" HEAD; then
+            echo "Bỏ qua: $SHA cũ hơn commit đang chạy $(git rev-parse --short HEAD)"
+            exit 0
+          fi
           # Deploy ĐÚNG commit vừa qua CI, không phải đầu mới nhất của main. Trước
           # đây CD của commit A (xanh) lấy luôn main, nên nếu commit B đỏ được push
           # ngay sau thì B vẫn bị deploy — cổng "CI xanh mới deploy" bị thủng.
-          git reset --hard "${{ github.event.workflow_run.head_sha }}"
+          git reset --hard "$SHA"
           # Kiểm tra TRƯỚC khi dựng lại container: nếu file cấu hình được mount
           # không tồn tại, Docker sẽ lặng lẽ tạo một THƯ MỤC trùng tên và dịch vụ
           # không khởi động được. Ngày 18/09 chuyện này đã đánh sập Alertmanager.
