@@ -63,6 +63,10 @@ updates:
         update-types:
           - "version-update:semver-major"
           - "version-update:semver-minor"
+      # Từ 2.9.11 không còn bản cài sẵn cho Python 3.8 — dù chỉ là "bản vá".
+      # Kiểm chứng 18/09/2026 bằng pip download trong chính container Airflow.
+      - dependency-name: psycopg2-binary
+        versions: [">=2.9.11"]
     groups:
       airflow-python:
         patterns: ["*"]

@@ -78,6 +78,14 @@ jobs:
       - name: Lint Dockerfile
         run: docker run --rm -i hadolint/hadolint:v2.15.1 < docker/airflow/Dockerfile
 
+      # Build thật image Airflow. Job Python chạy trên Python 3.11 với thư viện
+      # mới nhất, nên không bắt được thư viện không cài nổi trên Python 3.8 của
+      # image. Đã gặp thật: Dependabot đề xuất psycopg2-binary 2.9.9 -> 2.9.13,
+      # trông như bản vá vô hại, nhưng từ 2.9.11 không còn bản cho Python 3.8.
+      # Dockerfile tự import thử mọi thư viện nên build hỏng là CI đỏ.
+      - name: Build Airflow image
+        run: docker build -t dataops-airflow:ci docker/airflow
+
       # Compose dùng cú pháp ${BIEN:?...} nên phải có đủ biến mới kiểm tra được.
       # Giá trị ở đây chỉ để kiểm tra cú pháp, không phải secret thật.
       - name: Validate Docker Compose files
