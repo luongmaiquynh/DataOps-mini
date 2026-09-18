@@ -4,7 +4,7 @@
 # container Airflow tải lại 5 thư viện từ Internet ở mỗi lần khởi động. Hệ quả đo
 # được: 419 giây từ lúc `up -d` tới khi webserver healthy, và một lần triển khai
 # đã fail hẳn vì pip tải dở dang khi mạng chập chờn.
-FROM apache/airflow:2.7.1
+FROM apache/airflow:2.7.3
 
 COPY requirements.txt /tmp/requirements.txt
 
