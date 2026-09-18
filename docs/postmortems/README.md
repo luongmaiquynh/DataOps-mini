@@ -14,6 +14,7 @@ xảy ra mà không ai biết.
 | 3 | [CD hỏng âm thầm](03-cd-hong-am-tham.md) | Trung bình | 3 lần push |
 | 4 | [VM chết vì cấp phát RAM vượt mức](04-vm-chet-vi-thieu-ram.md) | Nghiêm trọng | Vài giờ |
 | 5 | [Celery worker ngừng nhận việc](05-celery-worker-ngung-nhan-viec.md) | Nghiêm trọng | 25,5 giờ |
+| 6 | [CD xoá cấu hình Alertmanager](06-cd-xoa-cau-hinh-alertmanager.md) | Trung bình | 1,5 phút (phát hiện ngay) |
 
 ## Điểm chung
 

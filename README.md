@@ -166,7 +166,7 @@ publishing ports that nothing outside needs.
 
 ## What I learned the hard way
 
-Five incidents are written up in [docs/postmortems/](docs/postmortems/). They share
+Six incidents are written up in [docs/postmortems/](docs/postmortems/). They share
 a theme: **the system reported healthy while it was broken**.
 
 | Incident | Hidden for |
@@ -176,6 +176,7 @@ a theme: **the system reported healthy while it was broken**.
 | CD silently failing on three consecutive pushes | 3 pushes |
 | Three VMs dying from RAM overcommit (24 GB allocated on a 16 GB host) | hours |
 | A Celery worker that answered every health check while it had stopped consuming work | 25.5 hours |
+| The first CD run after a 3-day runner outage deleted the Alertmanager config; Docker then mounted a directory in its place | 1.5 min (caught by blackbox probe) |
 
 Three of the four only surfaced because someone went looking at something everyone
 assumed was fine.
@@ -200,5 +201,5 @@ Written down deliberately — a system is only trustworthy if its gaps are known
 | [docs/dr-plan.md](docs/dr-plan.md) | RPO/RTO, four recovery scenarios, gap analysis |
 | [docs/chaos-drills.md](docs/chaos-drills.md) | 12 drills actually run, with commands to repeat them |
 | [docs/runbooks/](docs/runbooks/) | One procedure per alert |
-| [docs/postmortems/](docs/postmortems/) | Five incident write-ups |
+| [docs/postmortems/](docs/postmortems/) | Six incident write-ups |
 | [docs/README.vi.md](docs/README.vi.md) | Vietnamese operating guide |

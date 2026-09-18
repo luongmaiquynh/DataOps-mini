@@ -39,6 +39,16 @@ jobs:
           cd /home/dataops/dataops
           git fetch origin main
           git reset --hard FETCH_HEAD
+          # Kiểm tra TRƯỚC khi dựng lại container: nếu file cấu hình được mount
+          # không tồn tại, Docker sẽ lặng lẽ tạo một THƯ MỤC trùng tên và dịch vụ
+          # không khởi động được. Ngày 18/09 chuyện này đã đánh sập Alertmanager.
+          for f in monitoring/prometheus/prometheus.yml \
+                   monitoring/prometheus/alerts.yml; do
+            [ -f "$f" ] || { echo "::error::Thiếu file cấu hình $f, dừng deploy"; exit 1; }
+          done
+          # Chỉ dựng lại Prometheus. Cấu hình Alertmanager chứa URL bí mật nên do
+          # Ansible render từ vault, KHÔNG nằm trong git — CD không có quyền và
+          # không có lý do gì để đụng vào nó.
           docker compose -f docker/dataops-vm1/docker-compose-monitoring.yml \
-            up -d --force-recreate prometheus alertmanager
+            up -d --force-recreate prometheus
           echo "Monitoring deploy completed at $(date)"
