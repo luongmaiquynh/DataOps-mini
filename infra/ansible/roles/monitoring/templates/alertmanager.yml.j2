@@ -45,10 +45,27 @@ receivers:
   - name: 'blackhole'
 {% endif %}
 
+  # Alertmanager gửi JSON thô; ntfy dựng lại tiêu đề và nội dung từ JSON đó bằng
+  # template Go (X-Template). Các header này Alertmanager gửi nguyên văn, không tự
+  # render. ntfy KHÔNG render template trong nút bấm (X-Actions) hay X-Click — đã
+  # thử — nên link runbook nằm ở dòng cuối nội dung, ứng dụng ntfy tự biến nó
+  # thành link bấm được.
   - name: 'ntfy'
     webhook_configs:
       - url: 'https://ntfy.sh/dataops-mini-alerts'
         send_resolved: true
+        http_config:
+          http_headers:
+            X-Template:
+              values: ['yes']
+{% raw %}
+            X-Title:
+              values: ['{{if eq .status "firing"}}🔥{{else}}✅{{end}} [{{.commonLabels.severity}}] {{.commonLabels.alertname}} — {{if .commonLabels.vm}}{{.commonLabels.vm}}{{else}}{{len .alerts}} cảnh báo{{end}}']
+            # Nhóm có nhiều alert (vd. nhiều máy cùng lúc): mỗi alert một đoạn; alert
+            # đã khỏi trong một nhóm còn đang firing được đánh dấu riêng.
+            X-Message:
+              values: ['{{range .alerts}}{{if ne .status $.status}}✅ Đã khỏi: {{end}}{{.annotations.summary}}{{"\n"}}{{.annotations.description}}{{"\n"}}{{end}}{{(index .alerts 0).annotations.runbook_url}}']
+{% endraw %}
 
 # --- Cấu hình Gmail (tùy chọn thêm) ---
 # Thêm receiver bên dưới và thêm vào route nếu muốn nhận cả email:
