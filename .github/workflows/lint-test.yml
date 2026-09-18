@@ -97,6 +97,8 @@ jobs:
           MINIO_PORT=9000
           MINIO_BUCKET=ci
           AIRFLOW_IMAGE=apache/airflow:2.7.1
+          AIRFLOW_ADMIN_USER=ci
+          AIRFLOW_ADMIN_PASSWORD=ci
           AIRFLOW__CORE__FERNET_KEY=ci
           AIRFLOW__WEBSERVER__SECRET_KEY=ci
           AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://ci:ci@127.0.0.1:5432/ci
