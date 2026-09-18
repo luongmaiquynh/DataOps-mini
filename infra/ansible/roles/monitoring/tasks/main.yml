@@ -9,7 +9,7 @@
     owner: "{{ app_user }}"
     group: "{{ app_user }}"
     mode: "0644"
-  notify: Restart Alertmanager
+  notify: Reload Alertmanager
 
 - name: Deploy monitoring stack
   community.docker.docker_compose_v2:
@@ -21,6 +21,17 @@
 
 # File cấu hình được mount vào container; đổi nội dung không tự có hiệu lực.
 # Prometheus chạy với --web.enable-lifecycle nên nạp lại được qua API.
+# Loki và Promtail không nạp lại nóng được: script kiểm tra cấu hình bằng
+# container tạm, rồi chỉ khởi động lại dịch vụ nào có cấu hình thật sự đổi.
+- name: Apply Loki and Promtail configuration changes
+  ansible.builtin.command:
+    cmd: bash {{ app_dir }}/monitoring/scripts/apply-monitoring-config.sh
+  environment:
+    REPO_DIR: "{{ app_dir }}"
+  become: false
+  register: monitoring_apply
+  changed_when: "'APPLIED' in monitoring_apply.stdout"
+
 - name: Reload Prometheus configuration
   ansible.builtin.command:
     cmd: docker exec prometheus wget -q -O- --post-data= http://localhost:9090/-/reload

@@ -66,7 +66,7 @@ jobs:
           # cần nạp lại — không mất dữ liệu giám sát, không làm bật
           # ContainerRestartingTooMuch mỗi lần push.
           docker compose -f docker/dataops-vm1/docker-compose-monitoring.yml \
-            up -d prometheus
+            up -d prometheus loki promtail
           for i in $(seq 1 30); do
             docker exec prometheus wget -qO- http://localhost:9090/-/ready >/dev/null 2>&1 && break
             sleep 2
@@ -79,4 +79,6 @@ jobs:
           ok=$(docker exec prometheus wget -qO- http://localhost:9090/metrics \
                  | awk '/^prometheus_config_last_reload_successful /{print $2}')
           [ "$ok" = "1" ] || { echo "::error::Prometheus nạp lại cấu hình thất bại"; exit 1; }
+          # Loki và Promtail: kiểm tra rồi chỉ khởi động lại khi cấu hình đổi.
+          bash monitoring/scripts/apply-monitoring-config.sh
           echo "Monitoring deploy completed at $(date)"

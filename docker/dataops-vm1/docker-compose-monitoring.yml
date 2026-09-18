@@ -73,9 +73,12 @@ services:
     restart: always
     user: "0"
     volumes:
-      - ../../monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      # Mount thư mục để container luôn thấy file mới nhất; Loki không nạp lại
+      # nóng được nên monitoring/scripts/apply-monitoring-config.sh khởi động
+      # lại nó khi cấu hình đổi.
+      - ../../monitoring/loki:/etc/loki:ro
       - loki_data:/loki
-    command: -config.file=/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/loki-config.yml
     # Không publish ra host — Grafana và Promtail gọi qua network nội bộ.
     networks:
       - monitoring
@@ -87,9 +90,9 @@ services:
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ../../monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ../../monitoring/promtail:/etc/promtail:ro
       - promtail_positions:/var/lib/promtail
-    command: -config.file=/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/promtail-config.yml
     environment:
       - LOKI_URL=http://loki:3100/loki/api/v1/push
     depends_on:
@@ -102,7 +105,9 @@ services:
     container_name: alertmanager
     restart: always
     volumes:
-      - ../../monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Mount thư mục: Ansible render template ra file mới (inode mới), mount
+      # file lẻ thì container vẫn đọc bản cũ và /-/reload vô tác dụng.
+      - ../../monitoring/alertmanager:/etc/alertmanager:ro
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
