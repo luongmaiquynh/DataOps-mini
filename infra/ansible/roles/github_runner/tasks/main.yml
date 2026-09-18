@@ -1,0 +1,34 @@
+---
+# Runner được cài tay bằng token lấy trên GitHub nên không nằm trong role này; role
+# chỉ làm cho runner đã cài tự hồi phục được. Chưa cài runner thì các task bỏ qua.
+- name: Find GitHub Actions runner units
+  ansible.builtin.find:
+    paths: /etc/systemd/system
+    patterns: "{{ github_runner_unit_pattern }}"
+    file_type: file
+  register: github_runner_units
+
+- name: Create drop-in directory for each runner unit
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item.path | basename }}.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ github_runner_units.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+# Không khởi động lại runner ở đây: nó có thể đang chạy một job CD. Chỉ cần nạp lại
+# systemd, chính sách Restart mới có hiệu lực ở lần thoát kế tiếp.
+- name: Make runner restart itself after any exit
+  ansible.builtin.template:
+    src: 10-restart.conf.j2
+    dest: "/etc/systemd/system/{{ item.path | basename }}.d/10-restart.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ github_runner_units.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  notify: Reload systemd

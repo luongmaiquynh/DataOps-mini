@@ -145,4 +145,5 @@ jobs:
         run: |
           docker run --rm --entrypoint promtool \
             -v "$PWD/monitoring/prometheus:/cfg" \
-            "$PROM_IMAGE" test rules /cfg/tests/pipeline.test.yml
+            "$PROM_IMAGE" test rules /cfg/tests/pipeline.test.yml \
+              /cfg/tests/time-and-cicd.test.yml

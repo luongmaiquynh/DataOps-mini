@@ -27,5 +27,6 @@ airflow_image_name: dataops-airflow
 airflow_dockerfile: "{{ lookup('file', playbook_dir + '/../../docker/airflow/Dockerfile') }}"
 airflow_requirements: "{{ lookup('file', playbook_dir + '/../../docker/airflow/requirements.txt') }}"
 airflow_base_version: "{{ airflow_dockerfile | regex_search('apache/airflow:([0-9.]+)', '\\1') | first }}"
-airflow_image_tag: "{{ airflow_base_version }}-{{ (airflow_dockerfile ~ airflow_requirements) | hash('sha1') | truncate(10, true, '') }}"
+airflow_source_hash: "{{ (airflow_dockerfile ~ airflow_requirements) | hash('sha1') | truncate(10, true, '') }}"
+airflow_image_tag: "{{ airflow_base_version }}-{{ airflow_source_hash }}"
 airflow_image: "{{ airflow_image_name }}:{{ airflow_image_tag }}"

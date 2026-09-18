@@ -23,6 +23,8 @@ Alertmanager là tới.
 | [MinioBackupMetricMissing](MinioBackupMetricMissing.md) | warning | Không thấy metric sao lưu MinIO |
 | [CeleryQueueBacklog](CeleryQueueBacklog.md) | warning | Hàng đợi Celery dồn việc |
 | [CeleryMetricMissing](CeleryMetricMissing.md) | warning | Không thấy phép đo hàng đợi |
+| [ClockSkew](ClockSkew.md) | warning | Đồng hồ một máy lệch hơn 30 giây |
+| [GitHubRunnerDown](GitHubRunnerDown.md) | warning | Runner không nhận job, CD sẽ không chạy |
 | [BackupRestoreTestStale](BackupRestoreTestStale.md) | warning | Lâu chưa kiểm chứng backup |
 | [TLSCertExpiringSoon](TLSCertExpiringSoon.md) | warning | Chứng chỉ TLS sắp hết hạn |
 | [Watchdog](Watchdog.md) | none | Nhịp tim — luôn firing; runbook dành cho khi nó NGỪNG |

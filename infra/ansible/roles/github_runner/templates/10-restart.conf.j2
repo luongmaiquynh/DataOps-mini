@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+#
+# Unit do svc.sh của runner sinh ra để Restart=no. Khi runner gặp lỗi mà nó coi là
+# vĩnh viễn, nó thoát mã 0 ("no retry needed") và nằm chết luôn. Đã xảy ra thật
+# hai lần: lúc VM1 vừa thức dậy sau khi máy Mac ngủ, đồng hồ còn sai, GitHub từ chối
+# token và runner hiểu nhầm thành "registration has been deleted" — dù đăng ký vẫn
+# còn nguyên. Chỉ cần khởi động lại sau khi đồng hồ đúng là chạy tiếp.
+#
+# Restart=always (không phải on-failure) vì lần thoát đó mang mã 0.
+# Drop-in thay vì sửa unit gốc: cài lại runner bằng svc.sh không làm mất nó.
+[Unit]
+After=network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+RestartSec={{ github_runner_restart_sec }}

@@ -225,6 +225,39 @@ groups:
             https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/CeleryMetricMissing.md
           description: "Cron đo hàng đợi không chạy, hoặc node-exporter mất thư mục textfile."
 
+  - name: time-and-cicd
+    rules:
+      # So đồng hồ mỗi máy với đồng hồ Prometheus ngay lúc lấy số liệu. KHÔNG dùng
+      # node_timex_sync_status: ngày 18/09 VM2 chậm 44 phút mà metric đó vẫn báo 1
+      # suốt 12 giờ, còn biểu thức này bắt được lệch 78 phút (VM2) và 18 phút (VM3).
+      - alert: ClockSkew
+        expr: abs(node_time_seconds - timestamp(node_time_seconds)) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Đồng hồ {{ $labels.vm }} lệch so với Prometheus"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/ClockSkew.md
+          description: "Đồng hồ {{ $labels.vm }} lệch {{ $value | humanizeDuration }} so với VM1."
+
+      # Runner nay tự khởi động lại sau 60 giây, nên chết thật hiện ra dưới dạng
+      # khởi động lại liên tục chứ không phải "không chạy" — phải bắt cả hai.
+      - alert: GitHubRunnerDown
+        expr: >-
+          (dataops_systemd_unit_active{unit=~"actions\\.runner\\..+"} == 0)
+          or (increase(dataops_systemd_unit_restarts_total{unit=~"actions\\.runner\\..+"}[30m]) > 3)
+          or absent(dataops_systemd_unit_active{unit=~"actions\\.runner\\..+"})
+        for: 15m
+        labels:
+          severity: warning
+          vm: vm1
+        annotations:
+          summary: "Runner GitHub Actions không nhận được job"
+          runbook_url: >-
+            https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/GitHubRunnerDown.md
+          description: "Runner trên VM1 đã dừng hoặc khởi động lại liên tục; CD sẽ không chạy."
+
   - name: endpoints
     rules:
       # Container có thể "Up" trong khi dịch vụ đã không trả lời được nữa.

@@ -15,10 +15,16 @@
     label: "dataops-{{ item.name }}.service"
   notify: Reload systemd
 
-- name: Enable stacks to start on boot
+# Enable thôi là chưa đủ: unit cài xong nhưng chưa bao giờ chạy thì ở trạng thái
+# inactive, và systemd chỉ gọi ExecStop (compose stop) cho unit đang active — tắt
+# máy sẽ không dừng stack gọn gàng. Đã thấy thật trên VM1: hai unit cài ngày 15/09
+# chưa chạy lần nào vì VM1 chưa khởi động lại từ đó. Với stack đang chạy, `up -d`
+# của unit không làm gì cả, nên bật unit ở đây là an toàn.
+- name: Enable and start stacks
   ansible.builtin.systemd_service:
     name: "dataops-{{ item.name }}.service"
     enabled: true
+    state: started
     daemon_reload: true
   loop: "{{ compose_units_stacks }}"
   loop_control:

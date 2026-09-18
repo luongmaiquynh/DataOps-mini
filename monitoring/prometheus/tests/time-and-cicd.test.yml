@@ -1,0 +1,99 @@
+---
+# Unit test cho nhóm alert `time-and-cicd`.
+# Chạy: promtool test rules monitoring/prometheus/tests/time-and-cicd.test.yml
+rule_files:
+  - ../alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Tái hiện 18/09: VM2 chậm 44 phút (2664 giây) so với Prometheus.
+  - interval: 1m
+    input_series:
+      - series: 'node_time_seconds{vm="vm2", instance="192.168.64.3:9100"}'
+        values: '-2664+60x20'
+      - series: 'node_time_seconds{vm="vm1", instance="node-exporter:9100"}'
+        values: '0+60x20'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ClockSkew
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: ClockSkew
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              vm: vm2
+              instance: "192.168.64.3:9100"
+            exp_annotations:
+              summary: "Đồng hồ vm2 lệch so với Prometheus"
+              runbook_url: >-
+                https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/ClockSkew.md
+              description: "Đồng hồ vm2 lệch 44m 24s so với VM1."
+
+  # Runner không chạy.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_systemd_unit_active{unit="actions.runner.x.service", vm="vm1"}'
+        values: '0x30'
+      - series: 'dataops_systemd_unit_restarts_total{unit="actions.runner.x.service", vm="vm1"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: GitHubRunnerDown
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: GitHubRunnerDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              vm: vm1
+              unit: actions.runner.x.service
+            exp_annotations: &runner_annotations
+              summary: "Runner GitHub Actions không nhận được job"
+              runbook_url: >-
+                https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/GitHubRunnerDown.md
+              description: "Runner trên VM1 đã dừng hoặc khởi động lại liên tục; CD sẽ không chạy."
+
+  # Runner "chạy" nhưng tự khởi động lại mỗi 5 phút — chết thật trông như thế này.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_systemd_unit_active{unit="actions.runner.x.service", vm="vm1"}'
+        values: '1x60'
+      - series: 'dataops_systemd_unit_restarts_total{unit="actions.runner.x.service", vm="vm1"}'
+        values: '0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3 4 4 4 4 4 5 5 5 5 5 6 6 6 6 6 7 7 7 7 7 8 8 8 8 8 9 9 9 9 9 10'
+    alert_rule_test:
+      - eval_time: 50m
+        alertname: GitHubRunnerDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              vm: vm1
+              unit: actions.runner.x.service
+            exp_annotations: *runner_annotations
+
+  # Runner khoẻ: không được báo gì.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_systemd_unit_active{unit="actions.runner.x.service", vm="vm1"}'
+        values: '1x40'
+      - series: 'dataops_systemd_unit_restarts_total{unit="actions.runner.x.service", vm="vm1"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: GitHubRunnerDown
+        exp_alerts: []
+
+  # Mất hẳn metric (cron chết, hoặc runner bị gỡ).
+  - interval: 1m
+    input_series:
+      - series: 'up{job="unrelated"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: GitHubRunnerDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              vm: vm1
+            exp_annotations: *runner_annotations

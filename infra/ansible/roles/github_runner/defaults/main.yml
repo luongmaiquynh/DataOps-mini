@@ -1,0 +1,3 @@
+---
+github_runner_unit_pattern: "actions.runner.*.service"
+github_runner_restart_sec: 60

@@ -8,3 +8,4 @@ monitoring_dead_mans_switch_url: ""
 monitoring_textfile_dir: /var/lib/node_exporter/textfile
 monitoring_celery_metrics_script: /home/dataops/celery-queue-metrics.sh
 monitoring_celery_metrics_log: /var/log/dataops-celery-metrics.log
+monitoring_unit_metrics_script: /home/dataops/unit-status-metrics.sh

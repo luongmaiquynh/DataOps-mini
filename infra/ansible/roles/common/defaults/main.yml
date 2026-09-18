@@ -3,3 +3,9 @@
 common_ufw_allow_ports: []
 common_ssh_hardening_enabled: true
 common_local_hostnames: []
+
+# Đồng bộ giờ. maxpoll 6 = hỏi lại khoảng mỗi 64 giây, để VM thức dậy sau khi máy
+# Mac ngủ được chỉnh giờ trong vòng một phút thay vì tới 34 phút.
+common_ntp_pools:
+  - ntp.ubuntu.com
+common_ntp_maxpoll: 6

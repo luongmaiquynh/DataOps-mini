@@ -139,7 +139,7 @@ metric, so a broken backup raises an alert instead of sitting silently in a log.
 
 ## Alerting
 
-20 rules, each carrying a `runbook_url` that points at a specific procedure in
+22 rules, each carrying a `runbook_url` that points at a specific procedure in
 [docs/runbooks/](docs/runbooks/) — the person paged at 2 a.m. gets instructions, not
 just a red dot.
 

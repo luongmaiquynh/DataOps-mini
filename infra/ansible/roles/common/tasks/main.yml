@@ -84,3 +84,26 @@
     line: "127.0.0.1 {{ item }}"
     state: present
   loop: "{{ common_local_hostnames }}"
+
+# Cài chrony sẽ tự gỡ systemd-timesyncd (gói khai báo Conflicts: time-daemon).
+- name: Install chrony for time synchronisation
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Configure chrony
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart chrony
+
+- name: Ensure chrony is running
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true

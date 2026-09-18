@@ -108,3 +108,22 @@
     minute: "*"
     job: "{{ monitoring_celery_metrics_script }} >> {{ monitoring_celery_metrics_log }} 2>&1"
     state: present
+
+# Runner GitHub đã chết hai lần mà không alert nào bật. Script này đưa trạng thái
+# và số lần tự khởi động lại của các unit quan trọng vào Prometheus.
+- name: Install systemd unit status metrics script
+  ansible.builtin.copy:
+    src: "{{ app_dir }}/monitoring/scripts/unit-status-metrics.sh"
+    dest: "{{ monitoring_unit_metrics_script }}"
+    remote_src: true
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Schedule systemd unit status measurement every minute
+  ansible.builtin.cron:
+    name: Systemd unit status metrics
+    user: "{{ app_user }}"
+    minute: "*"
+    job: "{{ monitoring_unit_metrics_script }} >/dev/null 2>&1"
+    state: present

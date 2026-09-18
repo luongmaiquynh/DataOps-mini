@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+#
+# chrony thay cho systemd-timesyncd. Ba máy ảo chạy trên laptop và bị tạm dừng mỗi
+# khi máy Mac ngủ; lúc thức dậy đồng hồ có thể chậm hàng chục phút. Ngày 18/09/2026
+# đo được VM2 chậm 44 phút mà timesyncd vẫn báo "synchronized: yes" — nó chỉ hỏi
+# lại máy chủ giờ sau tới 34 phút. Hệ quả thật: runner GitHub bị từ chối token (đồng
+# hồ sai) rồi tự tắt vĩnh viễn, và script đo hàng đợi tính ra tuổi task âm.
+
+{% for pool in common_ntp_pools %}
+pool {{ pool }} iburst maxsources 4 maxpoll {{ common_ntp_maxpoll }}
+{% endfor %}
+
+# Nhảy thẳng tới giờ đúng mỗi khi lệch quá 1 giây, ở BẤT KỲ thời điểm nào (-1),
+# không chỉ lúc khởi động. Chỉnh từ từ thì lệch 44 phút mất nhiều giờ mới hết.
+makestep 1 -1
+
+driftfile /var/lib/chrony/chrony.drift
+rtcsync
+keyfile /etc/chrony/chrony.keys
+logdir /var/log/chrony
