@@ -21,5 +21,11 @@ monitoring_dead_mans_switch_url: "{{ vault_dead_mans_switch_url }}"
 # Tag image Airflow mang hash của requirements.txt: đổi thư viện là tag đổi theo,
 # nên không bao giờ chạy nhầm image cũ.
 airflow_image_name: dataops-airflow
-airflow_image_tag: "2.7.1-{{ lookup('file', playbook_dir + '/../../docker/airflow/requirements.txt') | hash('sha1') | truncate(10, true, '') }}"
+# Tên image đổi khi Dockerfile HOẶC requirements đổi. Bản cũ viết cứng "2.7.1" và chỉ
+# băm requirements: đổi FROM sang 2.7.3 thì tên giữ nguyên, Ansible thấy image "đã có"
+# nên không build lại, hệ thống âm thầm chạy bản cũ.
+airflow_dockerfile: "{{ lookup('file', playbook_dir + '/../../docker/airflow/Dockerfile') }}"
+airflow_requirements: "{{ lookup('file', playbook_dir + '/../../docker/airflow/requirements.txt') }}"
+airflow_base_version: "{{ airflow_dockerfile | regex_search('apache/airflow:([0-9.]+)', '\\1') | first }}"
+airflow_image_tag: "{{ airflow_base_version }}-{{ (airflow_dockerfile ~ airflow_requirements) | hash('sha1') | truncate(10, true, '') }}"
 airflow_image: "{{ airflow_image_name }}:{{ airflow_image_tag }}"

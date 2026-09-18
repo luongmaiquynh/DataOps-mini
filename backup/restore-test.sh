@@ -12,6 +12,11 @@
 set -uo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-/opt/backup/postgres}"
+# Khôi phục bằng ĐÚNG bản PostgreSQL mà server đang chạy, đọc từ compose của VM2
+# (repo được đồng bộ xuống mọi VM). Viết cứng thì server nâng lên mà bài kiểm
+# chứng vẫn khôi phục bằng bản cũ — không còn chứng minh đúng điều nó cần chứng minh.
+COMPOSE_VM2="${COMPOSE_VM2:-/home/dataops/dataops/docker/dataops-vm2/docker-compose.yml}"
+PG_IMAGE="${PG_IMAGE:-$(grep -oE 'postgres:[0-9][0-9.]*' "$COMPOSE_VM2" 2>/dev/null | head -1)}"
 PG_IMAGE="${PG_IMAGE:-postgres:15.17}"
 CONTAINER="restore_test_$$"
 TMP_PASS="$(openssl rand -hex 16)"

@@ -123,12 +123,19 @@ jobs:
             docker compose --env-file /tmp/ci.env -f "$f" config -q
           done
 
+      # Kiểm alert bằng promtool của ĐÚNG bản Prometheus đang chạy, đọc từ compose,
+      # để Dependabot nâng Prometheus thì bước kiểm tra cũng nâng theo.
+      - name: Detect Prometheus version
+        run: |
+          echo "PROM_IMAGE=$(grep -oE 'prom/prometheus:v[0-9.]+' \
+            docker/dataops-vm1/docker-compose-monitoring.yml)" >> "$GITHUB_ENV"
+
       - name: Validate Prometheus rules
         run: |
           # entrypoint của image là prometheus, nên phải đổi mới gọi được promtool
           docker run --rm --entrypoint promtool \
             -v "$PWD/monitoring/prometheus:/cfg" \
-            prom/prometheus:v3.11.3 check rules /cfg/alerts.yml
+            "$PROM_IMAGE" check rules /cfg/alerts.yml
 
       # Kiểm cú pháp là không đủ: bản đầu của AirflowTaskStuckQueued qua được
       # check rules nhưng đặt ngưỡng cao hơn mốc Airflow tự huỷ task, tức là
@@ -138,4 +145,4 @@ jobs:
         run: |
           docker run --rm --entrypoint promtool \
             -v "$PWD/monitoring/prometheus:/cfg" \
-            prom/prometheus:v3.11.3 test rules /cfg/tests/pipeline.test.yml
+            "$PROM_IMAGE" test rules /cfg/tests/pipeline.test.yml
