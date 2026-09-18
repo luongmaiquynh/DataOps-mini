@@ -58,8 +58,8 @@ Redis được loại khỏi diện nghi vấn vì `timeout = 0`, tức nó khô
 rảnh. Container cũng chưa restart lần nào (`RestartCount: 0`), nên không phải
 worker vừa khởi động lại rồi kẹt.
 
-Nguyên nhân sâu hơn — vì sao consumer chết mà không ghi một dòng log nào — chưa xác
-định được, vì bằng chứng trong tiến trình đã mất khi restart. Điều ghi nhận được là
+Nguyên nhân sâu hơn — vì sao consumer chết mà không ghi một dòng log nào — lúc đó chưa xác
+định được (lần lặp lại ngày 18/09 đã tìm ra một nguyên nhân, xem [cuối bài](#lặp-lại-ngày-1809-và-nguyên-nhân-gốc)), vì bằng chứng trong tiến trình đã mất khi restart. Điều ghi nhận được là
 log duy nhất của container trong ngày hôm đó thuộc về tiến trình phụ `serve_logs`
 (gunicorn), liên tục `WORKER TIMEOUT` và một lần `SIGKILL! Perhaps out of memory?`.
 VM1 khi kiểm tra còn 4,4 GB RAM trống, nhưng máy Mac chủ đang dùng 15,3/16,4 GB
@@ -104,6 +104,60 @@ Ngày 18/09 tái hiện sự cố bằng `celery control cancel_consumer default
 
 Nếu không diễn tập, alert này sẽ nằm im đúng trong tình huống nó sinh ra để bắt.
 
+## Lặp lại ngày 18/09 và nguyên nhân gốc
+
+### Cảnh báo đã bắt được — nhưng không ai nghe
+
+Ngày 18/09, `ingest_weather_api` thất bại 6 lần liên tiếp từ 10:37 tới 14:40 UTC.
+Log task không có lỗi nào, vì task chưa từng được chạy: nằm chờ quá 600 giây rồi bị
+scheduler đánh dấu hỏng. Prometheus cho thấy đúng hình ảnh của lần đầu:
+
+| Giờ (UTC) | Diễn biến |
+|---|---|
+| 09:00–10:00 | VM2 (PostgreSQL, Redis) tắt để hạ RAM |
+| 10:03:44 | Worker ghi `Connection to broker lost`, kết nối lại được |
+| 10:15 | `dataops_celery_consumers` về 0; `AirflowTaskStuckQueued` firing |
+| 10:30 | `CeleryNoConsumer` firing, gửi qua ntfy |
+| 10:15–15:15 | Hàng đợi tăng từ 4 lên 28 việc |
+| 15:20 | Worker được khởi động lại, hàng đợi về 0 |
+
+Lần này hệ thống **phát hiện sau khoảng 15 phút** thay vì 25,5 giờ — các metric và
+alert thêm sau lần đầu đã làm đúng việc. Nhưng sự cố vẫn kéo dài 5 giờ, vì chưa có ai
+đăng ký nhận thông báo từ kênh ntfy. Cảnh báo gửi tới một nơi không ai đọc thì cũng
+như không có.
+
+### Tái hiện và tìm ra lỗi
+
+Diễn tập [#16](../chaos-drills.md): khởi động lại container Redis **một lần** là đủ
+tái hiện. Worker kết nối lại (`Connected to redis`, `mingle: all alone`) rồi không
+lấy thêm việc nào. Gửi `SIGUSR1` để worker in stack: vòng lặp chính không treo, vẫn
+chờ ở `epoll.poll`, nhưng không còn gửi `BRPOP` — sau khi kết nối lại, nó quên đăng ký
+đọc hàng đợi.
+
+Dựng một app Celery tối giản với Redis tạm, cùng image, không có Airflow: tái hiện 5/5
+lần. Lỗi nằm trong bộ thư viện đi kèm Airflow 2.7.3 (Celery 5.3.4, kombu 5.3.2), không
+phải cấu hình. Thử lần lượt các bản vá tương thích Python 3.8:
+
+| Phiên bản | Task chạy được sau 5 lần khởi động lại Redis |
+|---|---|
+| Celery 5.3.4, kombu 5.3.2 (đang chạy) | 0/5 |
+| kombu 5.3.7 | 0/5 |
+| Celery 5.3.6, kombu 5.3.7 | sống qua 1 lần, sau đó hỏng |
+| **Celery 5.4.0, kombu 5.4.2** | **5/5** (cả với redis-py 4.6.0 lẫn 5.0.8) |
+
+Sửa: ghim `celery==5.4.0` và `kombu==5.4.2` trong `docker/airflow/requirements.txt`.
+`pip check` không phát sinh xung đột mới; executor của Airflow import được.
+
+### Điều chưa giải thích được
+
+- Lần khởi động lại Redis lúc 15:47 ngày 18/09 **không** làm hỏng worker. Lỗi không xảy
+  ra 100% trên hệ thống thật, nên một lần khởi động lại suôn sẻ không chứng minh là đã
+  an toàn — phải lặp lại nhiều lần như trong diễn tập.
+- Log trong Loki quanh lần đầu (16/09 06:41) **không có** dòng mất kết nối Redis nào.
+  Có thể lần đầu do nguyên nhân khác, hoặc kết nối đứt mà không sinh log. Metric và
+  alert vẫn bắt được cả hai kiểu, vì chúng đo triệu chứng (không ai `BRPOP`) chứ không
+  đo nguyên nhân.
+
 ## Bài học
 
 - **Tiến trình còn sống không có nghĩa là nó còn làm việc.** Health check dựa trên
@@ -113,6 +167,12 @@ Nếu không diễn tập, alert này sẽ nằm im đúng trong tình huống n
 - **Lệnh inspect của Celery đi qua kênh khác với đường lấy việc.** Vì thế nó có thể
   trả lời "OK" trong khi đường lấy việc đã đứt. Muốn biết sự thật thì hỏi Redis:
   có client nào đang `brpop` không.
+- **Cảnh báo chỉ có giá trị khi có người nhận.** Lần hai hệ thống báo đúng sau 15
+  phút, nhưng không ai đăng ký kênh thông báo nên sự cố vẫn kéo dài 5 giờ.
+- **Đo triệu chứng trước, tìm nguyên nhân sau.** Alert thêm sau lần đầu không biết gì
+  về lỗi thư viện, nhưng vẫn bắt được lần hai vì nó đo đúng hậu quả.
+- **Tách lỗi khỏi hệ thống để chứng minh.** Chỉ khi tái hiện được trên một app tối giản
+  mới khẳng định được lỗi nằm ở thư viện, và mới so sánh được các bản vá một cách công bằng.
 
 ---
 *Các postmortem khác: [README.md](README.md)*

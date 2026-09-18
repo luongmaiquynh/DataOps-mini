@@ -25,6 +25,7 @@ một quy trình khôi phục chưa từng chạy thì chưa phải quy trình.
 | 13 | **Khôi phục data lake vào một MinIO trắng** | 17/17 object, md5 khớp từng byte | **dưới 1 giây** | 17/09/2026 |
 | 14 | Bơm `InstanceDown` + `PostgreSQLDown` cùng nhãn `vm` vào Alertmanager | `PostgreSQLDown` chuyển sang `suppressed`; cùng alert đó ở `vm` khác vẫn `active` | ngay lập tức | 17/09/2026 |
 | 15 | **Worker ngừng lấy việc nhưng vẫn trả lời ping** (`celery control cancel_consumer`) | `CeleryNoConsumer` firing, gửi qua ntfy — lần thử đầu KHÔNG bật, lộ lỗi trong metric | **11,5 phút** | 18/09/2026 |
+| 16 | **Khởi động lại Redis một lần** (`docker restart redis_cache`) | Worker kết nối lại nhưng không bao giờ lấy việc nữa — tái hiện nguyên nhân gốc của postmortem 5; sửa bằng Celery 5.4.0 | `CeleryNoConsumer` (như #15) | 19/09/2026 |
 
 ## Cách lặp lại từng kịch bản
 
@@ -183,6 +184,32 @@ Kết quả 18/09/2026:
 
 So với sự cố thật: 25,5 giờ không ai biết, nay hệ thống tự báo sau 11,5 phút.
 
+### 16. Khởi động lại Redis: worker có lấy việc lại không
+
+Tìm nguyên nhân gốc của sự cố worker lặp lại ngày 18/09 ([postmortem 5](postmortems/05-celery-worker-ngung-nhan-viec.md)).
+Log trong Loki cho thấy worker mất kết nối Redis lúc VM2 tắt, kết nối lại được, rồi
+không lấy thêm việc nào suốt 5 giờ.
+
+```bash
+# Trên hệ thống thật (làm lúc không có DAG chạy, worker sẽ phải khởi động lại sau đó)
+ssh dataops@192.168.64.3 'docker restart redis_cache'
+# 60 giây sau: phải còn đúng 1 kết nối brpop có idle 0-1 giây
+ssh dataops@192.168.64.3 'docker exec redis_cache sh -c "redis-cli -a \$REDIS_PASSWORD --no-auth-warning CLIENT LIST" | grep cmd=brpop'
+```
+
+Kết quả 19/09/2026:
+
+| Bước | Kết quả |
+|---|---|
+| Khởi động lại Redis thật, lần 1 | Worker ghi `Connection to broker lost`, kết nối lại (`Connected to redis`, `mingle: all alone`) rồi **ngừng lấy việc**. Bốn lần khởi động lại / đóng băng Redis sau đó không sinh thêm một dòng log nào |
+| Gửi `SIGUSR1` để worker in stack | Vòng lặp chính không treo — đang chờ ở `epoll.poll` — nhưng không còn gửi `BRPOP`: sau khi kết nối lại, nó quên đăng ký đọc hàng đợi |
+| App Celery tối giản + Redis tạm, cùng image | Tái hiện 5/5 lần: lỗi nằm ở thư viện, không ở cấu hình Airflow hay mạng lab |
+| Thử các bản vá | kombu 5.3.7: hỏng. Celery 5.3.6 + kombu 5.3.7: sống qua 1 lần rồi hỏng. **Celery 5.4.0 + kombu 5.4.2: 5/5 lần sống**, với cả redis-py 4.6.0 và 5.0.8 |
+| Chạy task thật sau mỗi lần khởi động lại Redis | Bản cũ **0/5**, bản mới **5/5** |
+
+Khởi động lại Redis một lần lúc 15:47 ngày 18/09 không làm hỏng worker, nên lỗi không
+xảy ra 100% trên hệ thống thật — nhưng đủ thường để một lần bảo trì VM2 là dính.
+
 ## Những gì diễn tập đã phát hiện
 
 Không phải kịch bản nào cũng chạy trơn. Ba lần thử đã lộ ra lỗi thật:
@@ -195,6 +222,7 @@ Không phải kịch bản nào cũng chạy trơn. Ba lần thử đã lộ ra 
 | Sao lưu MinIO lần đầu | Container chạy bằng root nên toàn bộ file mirror thuộc root, user thường không xoá hay ghi đè được nữa |
 | Đọc nhãn thật của từng target | Luật inhibit dùng `equal: ['instance']` chưa bao giờ khớp được: `instance` là địa chỉ của target, nên ba exporter trên cùng VM1 mang ba giá trị khác nhau |
 | Tái hiện worker chết im lặng | Metric đếm consumer theo cột `cmd` của Redis nên vẫn báo 1 consumer khi worker đã ngừng lấy việc — alert viết ra để bắt đúng sự cố này lại không bắt được nó |
+| Khởi động lại Redis | Celery 5.3.4 đi kèm Airflow 2.7.3 kết nối lại sau khi mất broker nhưng không lấy việc nữa — nguyên nhân gốc của sự cố worker hai lần |
 
 Đó chính là lý do phải diễn tập: cấu hình sai thường im lặng, và hệ thống vẫn
 báo xanh cho tới lúc thật sự cần tới nó.
@@ -208,5 +236,5 @@ báo xanh cho tới lúc thật sự cần tới nó.
 | Kịch bản 9, 10 (dựng lại và khôi phục) | Mỗi quý |
 | Kịch bản 13 (khôi phục MinIO) | Mỗi quý |
 | Kịch bản 14 (luật inhibit) | Sau mỗi lần sửa luật cảnh báo |
-| Kịch bản 15 (worker chết im lặng) | Sau mỗi lần nâng cấp Airflow hoặc Celery |
+| Kịch bản 15, 16 (worker chết im lặng, khởi động lại Redis) | Sau mỗi lần nâng cấp Airflow, Celery hoặc Redis |
 | Toàn bộ danh sách | Sau mỗi thay đổi lớn về hạ tầng |

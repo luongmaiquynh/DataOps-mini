@@ -13,7 +13,7 @@ xảy ra mà không ai biết.
 | 2 | [Prometheus đọc file cấu hình cũ](02-prometheus-doc-file-cu.md) | Trung bình | Vài giờ |
 | 3 | [CD hỏng âm thầm](03-cd-hong-am-tham.md) | Trung bình | 3 lần push |
 | 4 | [VM chết vì cấp phát RAM vượt mức](04-vm-chet-vi-thieu-ram.md) | Nghiêm trọng | Vài giờ |
-| 5 | [Celery worker ngừng nhận việc](05-celery-worker-ngung-nhan-viec.md) | Nghiêm trọng | 25,5 giờ |
+| 5 | [Celery worker ngừng nhận việc](05-celery-worker-ngung-nhan-viec.md) (lặp lại 18/09, đã tìm ra lỗi thư viện) | Nghiêm trọng | 25,5 giờ; lần 2: 5 giờ |
 | 6 | [CD xoá cấu hình Alertmanager](06-cd-xoa-cau-hinh-alertmanager.md) | Trung bình | 1,5 phút (phát hiện ngay) |
 
 ## Điểm chung
