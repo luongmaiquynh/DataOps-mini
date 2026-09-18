@@ -16,7 +16,14 @@ concurrency:
 
 jobs:
   deploy-vm1:
-    if: github.event.workflow_run.conclusion == 'success'
+    # Repo công khai: ai cũng fork được và mở PR, và CI chạy cả trên PR. Chỉ
+    # xét `branches: [main]` là không đủ — nhánh của fork cũng có thể tên main,
+    # và CD sẽ chạy trên runner tự host ở VM1 (có Docker, tương đương root).
+    # Chỉ deploy khi CI được kích hoạt bởi push vào CHÍNH repo này.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: self-hosted
     environment: production
 
@@ -45,7 +52,14 @@ jobs:
           echo "Deploy DAGs completed at $(date)"
 
   deploy-monitoring:
-    if: github.event.workflow_run.conclusion == 'success'
+    # Repo công khai: ai cũng fork được và mở PR, và CI chạy cả trên PR. Chỉ
+    # xét `branches: [main]` là không đủ — nhánh của fork cũng có thể tên main,
+    # và CD sẽ chạy trên runner tự host ở VM1 (có Docker, tương đương root).
+    # Chỉ deploy khi CI được kích hoạt bởi push vào CHÍNH repo này.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: self-hosted
     environment: production
     needs: deploy-vm1
