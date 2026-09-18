@@ -29,8 +29,12 @@ services:
     container_name: prometheus
     restart: always
     volumes:
-      - ../../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ../../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      # Mount CẢ THƯ MỤC, không mount từng file. Docker bám vào inode của file
+      # được mount lẻ: `git reset` hay `scp` tạo file mới (inode mới) thì
+      # container vẫn đọc bản cũ mà không báo gì — đã khiến Prometheus chạy 6
+      # alert trong khi repo có 10. Mount thư mục thì file mới hiện ra ngay, và
+      # deploy chỉ cần /-/reload thay vì dựng lại container.
+      - ../../monitoring/prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

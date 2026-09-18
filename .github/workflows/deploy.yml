@@ -57,9 +57,26 @@ jobs:
                    monitoring/prometheus/alerts.yml; do
             [ -f "$f" ] || { echo "::error::Thiếu file cấu hình $f, dừng deploy"; exit 1; }
           done
-          # Chỉ dựng lại Prometheus. Cấu hình Alertmanager chứa URL bí mật nên do
+          # Chỉ đụng tới Prometheus. Cấu hình Alertmanager chứa URL bí mật nên do
           # Ansible render từ vault, KHÔNG nằm trong git — CD không có quyền và
           # không có lý do gì để đụng vào nó.
+          #
+          # `up -d` không kèm --force-recreate: chỉ dựng lại container khi chính
+          # định nghĩa compose thay đổi. Còn đổi alert hay scrape config thì chỉ
+          # cần nạp lại — không mất dữ liệu giám sát, không làm bật
+          # ContainerRestartingTooMuch mỗi lần push.
           docker compose -f docker/dataops-vm1/docker-compose-monitoring.yml \
-            up -d --force-recreate prometheus
+            up -d prometheus
+          for i in $(seq 1 30); do
+            docker exec prometheus wget -qO- http://localhost:9090/-/ready >/dev/null 2>&1 && break
+            sleep 2
+          done
+          # Kiểm tra cấu hình bằng chính promtool trong container TRƯỚC khi nạp:
+          # sai thì dừng, Prometheus giữ nguyên cấu hình đang chạy.
+          docker exec prometheus promtool check config /etc/prometheus/prometheus.yml
+          docker exec prometheus wget -qO- --post-data= http://localhost:9090/-/reload
+          # Xác nhận bằng metric của chính Prometheus, không tin vào mã thoát.
+          ok=$(docker exec prometheus wget -qO- http://localhost:9090/metrics \
+                 | awk '/^prometheus_config_last_reload_successful /{print $2}')
+          [ "$ok" = "1" ] || { echo "::error::Prometheus nạp lại cấu hình thất bại"; exit 1; }
           echo "Monitoring deploy completed at $(date)"
