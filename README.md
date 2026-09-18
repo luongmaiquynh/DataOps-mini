@@ -35,12 +35,13 @@ flowchart TB
 
     subgraph VM1["VM1 · 192.168.64.2 — orchestration & observability"]
         Caddy["Caddy<br/>TLS reverse proxy :443"]
-        AF["Airflow 2.7.1<br/>CeleryExecutor"]
+        AF["Airflow 2.7.3<br/>CeleryExecutor"]
         Prom["Prometheus"]
         Graf["Grafana"]
         Loki["Loki + Promtail"]
         AM["Alertmanager"]
         BB["blackbox-exporter"]
+        Runner["GitHub Actions runner<br/>CD"]
     end
 
     subgraph VM2["VM2 · 192.168.64.3 — data"]
@@ -50,7 +51,7 @@ flowchart TB
     end
 
     subgraph VM3["VM3 · 192.168.64.4 — backup"]
-        Backup["pg_dump + restore drill<br/>cron"]
+        Backup["pg_dump + MinIO mirror<br/>weekly restore drill · cron"]
         NE["node-exporter"]
     end
 
@@ -59,6 +60,8 @@ flowchart TB
     Prom --> VM2 & VM3
     AM -->|heartbeat every 5 min| HC["healthchecks.io<br/>dead man's switch"]
     Backup -->|nightly dump| PG
+    Backup -->|nightly mirror| Minio
+    Runner -->|polls for jobs after green CI| GH["GitHub Actions<br/>CI"]
 ```
 
 Every web UI sits behind Caddy on port 443 with certificates from its internal CA.
