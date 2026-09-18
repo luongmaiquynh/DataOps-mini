@@ -4,6 +4,52 @@ PLAY [Database layer (VM2)] ****************************************************
 TASK [Gathering Facts] *********************************************************
 ok: [vm2]
 
+TASK [common : Install firewall and intrusion prevention packages] *************
+ok: [vm2]
+
+TASK [common : Allow SSH through the firewall] *********************************
+ok: [vm2]
+
+TASK [common : Allow service ports for this host] ******************************
+ok: [vm2] => (item=5432 (PostgreSQL))
+ok: [vm2] => (item=6379 (Redis))
+ok: [vm2] => (item=9000 (MinIO API))
+ok: [vm2] => (item=9001 (MinIO console))
+ok: [vm2] => (item=9100 (node-exporter))
+
+TASK [common : Let Docker manage forwarded traffic] ****************************
+ok: [vm2]
+
+TASK [common : Deny all other incoming traffic by default] *********************
+ok: [vm2]
+
+TASK [common : Allow all outgoing traffic] *************************************
+ok: [vm2]
+
+TASK [common : Enable the firewall] ********************************************
+ok: [vm2]
+
+TASK [common : Configure fail2ban for sshd] ************************************
+ok: [vm2]
+
+TASK [common : Ensure fail2ban is running] *************************************
+ok: [vm2]
+
+TASK [common : Harden SSH configuration] ***************************************
+ok: [vm2]
+
+TASK [common : Map internal hostnames to loopback] *****************************
+skipping: [vm2]
+
+TASK [common : Install chrony for time synchronisation] ************************
+ok: [vm2]
+
+TASK [common : Configure chrony] ***********************************************
+ok: [vm2]
+
+TASK [common : Ensure chrony is running] ***************************************
+ok: [vm2]
+
 TASK [docker : Install prerequisites] ******************************************
 ok: [vm2]
 
@@ -22,6 +68,9 @@ ok: [vm2]
 TASK [docker : Install Docker packages] ****************************************
 ok: [vm2]
 
+TASK [docker : Limit container log size] ***************************************
+ok: [vm2]
+
 TASK [docker : Ensure Docker service is running and enabled] *******************
 ok: [vm2]
 
@@ -29,14 +78,9 @@ TASK [docker : Add users to docker group] **************************************
 ok: [vm2] => (item=dataops)
 
 TASK [app_code : Ensure app directory exists] **********************************
-[WARNING]: Deprecation warnings can be disabled by setting `deprecation_warnings=False` in ansible.cfg.
-[DEPRECATION WARNING]: Importing 'to_text' from 'ansible.module_utils._text' is deprecated. This feature will be removed from ansible-core version 2.24. Use ansible.module_utils.common.text.converters instead.
-[DEPRECATION WARNING]: The `ansible.module_utils.common._collections_compat` module is deprecated. This feature will be removed from ansible-core version 2.24. Use `collections.abc` from the Python standard library instead.
 ok: [vm2]
 
 TASK [app_code : Sync repository from control node] ****************************
-[DEPRECATION WARNING]: Importing 'to_bytes' from 'ansible.module_utils._text' is deprecated. This feature will be removed from ansible-core version 2.24. Use ansible.module_utils.common.text.converters instead.
-[DEPRECATION WARNING]: Importing 'to_native' from 'ansible.module_utils._text' is deprecated. This feature will be removed from ansible-core version 2.24. Use ansible.module_utils.common.text.converters instead.
 ok: [vm2]
 
 TASK [dotenv : Render .env files] **********************************************
@@ -52,9 +96,63 @@ ok: [vm2]
 TASK [database : Verify PostgreSQL is ready] ***********************************
 ok: [vm2]
 
+TASK [compose_units : Install systemd unit for each compose stack] *************
+ok: [vm2] => (item=dataops-database.service)
+
+TASK [compose_units : Enable and start stacks] *********************************
+ok: [vm2] => (item=dataops-database.service)
+
 PLAY [Airflow and monitoring (VM1)] ********************************************
 
 TASK [Gathering Facts] *********************************************************
+ok: [vm1]
+
+TASK [common : Install firewall and intrusion prevention packages] *************
+ok: [vm1]
+
+TASK [common : Allow SSH through the firewall] *********************************
+ok: [vm1]
+
+TASK [common : Allow service ports for this host] ******************************
+ok: [vm1] => (item=80 (HTTP (chỉ chuyển hướng sang HTTPS)))
+ok: [vm1] => (item=443 (HTTPS qua Caddy))
+
+TASK [common : Let Docker manage forwarded traffic] ****************************
+ok: [vm1]
+
+TASK [common : Deny all other incoming traffic by default] *********************
+ok: [vm1]
+
+TASK [common : Allow all outgoing traffic] *************************************
+ok: [vm1]
+
+TASK [common : Enable the firewall] ********************************************
+ok: [vm1]
+
+TASK [common : Configure fail2ban for sshd] ************************************
+ok: [vm1]
+
+TASK [common : Ensure fail2ban is running] *************************************
+ok: [vm1]
+
+TASK [common : Harden SSH configuration] ***************************************
+ok: [vm1]
+
+TASK [common : Map internal hostnames to loopback] *****************************
+ok: [vm1] => (item=grafana.dataops.test)
+ok: [vm1] => (item=airflow.dataops.test)
+ok: [vm1] => (item=prometheus.dataops.test)
+ok: [vm1] => (item=alerts.dataops.test)
+ok: [vm1] => (item=flower.dataops.test)
+ok: [vm1] => (item=cadvisor.dataops.test)
+
+TASK [common : Install chrony for time synchronisation] ************************
+ok: [vm1]
+
+TASK [common : Configure chrony] ***********************************************
+ok: [vm1]
+
+TASK [common : Ensure chrony is running] ***************************************
 ok: [vm1]
 
 TASK [docker : Install prerequisites] ******************************************
@@ -73,6 +171,9 @@ TASK [docker : Add Docker repository] ******************************************
 ok: [vm1]
 
 TASK [docker : Install Docker packages] ****************************************
+ok: [vm1]
+
+TASK [docker : Limit container log size] ***************************************
 ok: [vm1]
 
 TASK [docker : Ensure Docker service is running and enabled] *******************
@@ -91,6 +192,9 @@ TASK [dotenv : Render .env files] **********************************************
 ok: [vm1] => (item=(censored due to no_log))
 ok: [vm1] => (item=(censored due to no_log))
 
+TASK [airflow : Build the Airflow image] ***************************************
+ok: [vm1]
+
 TASK [airflow : Run Airflow metadata DB migration] *****************************
 ok: [vm1]
 
@@ -100,18 +204,110 @@ ok: [vm1]
 TASK [airflow : Wait for Airflow webserver to become healthy] ******************
 ok: [vm1]
 
+TASK [airflow : Ensure the Airflow admin password matches the vault] ***********
+ok: [vm1]
+
+TASK [monitoring : Render Alertmanager configuration] **************************
+ok: [vm1]
+
 TASK [monitoring : Deploy monitoring stack] ************************************
 ok: [vm1]
 
-TASK [monitoring : Wait for Prometheus to answer] ******************************
+TASK [monitoring : Apply Loki and Promtail configuration changes] **************
 ok: [vm1]
 
-TASK [monitoring : Wait for Grafana to answer] *********************************
+TASK [monitoring : Reload Prometheus configuration] ****************************
 ok: [vm1]
+
+TASK [monitoring : Wait for Prometheus to answer through the proxy] ************
+ok: [vm1]
+
+TASK [monitoring : Wait for Grafana to answer through the proxy] ***************
+ok: [vm1]
+
+TASK [monitoring : Wait for Airflow to answer through the proxy] ***************
+ok: [vm1]
+
+TASK [monitoring : Create node-exporter textfile directory] ********************
+ok: [vm1]
+
+TASK [monitoring : Install Celery queue metrics script] ************************
+ok: [vm1]
+
+TASK [monitoring : Ensure Celery metrics log file exists] **********************
+ok: [vm1]
+
+TASK [monitoring : Schedule Celery queue measurement every minute] *************
+ok: [vm1]
+
+TASK [monitoring : Install systemd unit status metrics script] *****************
+ok: [vm1]
+
+TASK [monitoring : Schedule systemd unit status measurement every minute] ******
+ok: [vm1]
+
+TASK [github_runner : Find GitHub Actions runner units] ************************
+ok: [vm1]
+
+TASK [github_runner : Create drop-in directory for each runner unit] ***********
+ok: [vm1] => (item=actions.runner.luongmaiquynh-DataOps-mini.dataops-vm1.service)
+
+TASK [github_runner : Make runner restart itself after any exit] ***************
+ok: [vm1] => (item=actions.runner.luongmaiquynh-DataOps-mini.dataops-vm1.service)
+
+TASK [compose_units : Install systemd unit for each compose stack] *************
+ok: [vm1] => (item=dataops-airflow.service)
+ok: [vm1] => (item=dataops-monitoring.service)
+
+TASK [compose_units : Enable and start stacks] *********************************
+ok: [vm1] => (item=dataops-airflow.service)
+ok: [vm1] => (item=dataops-monitoring.service)
 
 PLAY [Node exporter and backup (VM3)] ******************************************
 
 TASK [Gathering Facts] *********************************************************
+ok: [vm3]
+
+TASK [common : Install firewall and intrusion prevention packages] *************
+ok: [vm3]
+
+TASK [common : Allow SSH through the firewall] *********************************
+ok: [vm3]
+
+TASK [common : Allow service ports for this host] ******************************
+ok: [vm3] => (item=9100 (node-exporter))
+
+TASK [common : Let Docker manage forwarded traffic] ****************************
+ok: [vm3]
+
+TASK [common : Deny all other incoming traffic by default] *********************
+ok: [vm3]
+
+TASK [common : Allow all outgoing traffic] *************************************
+ok: [vm3]
+
+TASK [common : Enable the firewall] ********************************************
+ok: [vm3]
+
+TASK [common : Configure fail2ban for sshd] ************************************
+ok: [vm3]
+
+TASK [common : Ensure fail2ban is running] *************************************
+ok: [vm3]
+
+TASK [common : Harden SSH configuration] ***************************************
+ok: [vm3]
+
+TASK [common : Map internal hostnames to loopback] *****************************
+skipping: [vm3]
+
+TASK [common : Install chrony for time synchronisation] ************************
+ok: [vm3]
+
+TASK [common : Configure chrony] ***********************************************
+ok: [vm3]
+
+TASK [common : Ensure chrony is running] ***************************************
 ok: [vm3]
 
 TASK [docker : Install prerequisites] ******************************************
@@ -130,6 +326,9 @@ TASK [docker : Add Docker repository] ******************************************
 ok: [vm3]
 
 TASK [docker : Install Docker packages] ****************************************
+ok: [vm3]
+
+TASK [docker : Limit container log size] ***************************************
 ok: [vm3]
 
 TASK [docker : Ensure Docker service is running and enabled] *******************
@@ -162,6 +361,9 @@ ok: [vm3]
 TASK [backup : Install postgresql-client-15] ***********************************
 ok: [vm3]
 
+TASK [backup : Create node-exporter textfile directory] ************************
+ok: [vm3]
+
 TASK [backup : Create backup directory] ****************************************
 ok: [vm3]
 
@@ -174,8 +376,35 @@ ok: [vm3]
 TASK [backup : Schedule daily backup] ******************************************
 ok: [vm3]
 
+TASK [backup : Install restore verification script] ****************************
+ok: [vm3]
+
+TASK [backup : Ensure restore test log file exists] ****************************
+ok: [vm3]
+
+TASK [backup : Schedule weekly restore verification] ***************************
+ok: [vm3]
+
+TASK [backup : Create MinIO backup directory] **********************************
+ok: [vm3]
+
+TASK [backup : Install MinIO backup script] ************************************
+ok: [vm3]
+
+TASK [backup : Ensure MinIO backup log file exists] ****************************
+ok: [vm3]
+
+TASK [backup : Schedule daily MinIO backup] ************************************
+ok: [vm3]
+
+TASK [compose_units : Install systemd unit for each compose stack] *************
+ok: [vm3] => (item=dataops-node-exporter.service)
+
+TASK [compose_units : Enable and start stacks] *********************************
+ok: [vm3] => (item=dataops-node-exporter.service)
+
 PLAY RECAP *********************************************************************
-vm1                        : ok=18   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-vm2                        : ok=15   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-vm3                        : ok=21   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+vm1                        : ok=50   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+vm2                        : ok=31   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+vm3                        : ok=45   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
 
