@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15.17
+    image: postgres:15.19
     container_name: postgres_db
     restart: always
     environment:
@@ -36,7 +36,7 @@ services:
       - minio_data:/data
 
   redis:
-    image: redis:7.4.9
+    image: redis:7.4.11
     container_name: redis_cache
     restart: always
     # Redis mặc định không có xác thực. Cổng 6379 phải publish cho VM1 dùng
@@ -58,7 +58,7 @@ services:
   # VM2 chạy database nhưng trước đây không có node-exporter, nên đĩa đầy hay
   # RAM cạn trên chính máy quan trọng nhất lại là điểm mù.
   node-exporter:
-    image: prom/node-exporter:v1.11.1
+    image: prom/node-exporter:v1.12.1
     container_name: node_exporter
     restart: always
     volumes:
