@@ -170,14 +170,75 @@ def test_upsert_dataframe_creates_table_before_insert(sample_df):
     assert mock_to_sql.call_count == 2
 
 
-def test_upsert_dataframe_deletes_matching_keys(sample_df):
-    """DELETE phải nhận đúng danh sách khoá của DataFrame."""
+def test_upsert_dataframe_creates_unique_index_when_missing(sample_df):
+    """Chưa có index thì tạo: khoá được bảo đảm duy nhất ở phía database."""
     engine, conn = _mock_engine_with_conn()
+    conn.execute.return_value.scalar.return_value = None  # to_regclass: chưa có
+    with patch('etl.load.create_engine', return_value=engine):
+        with patch.object(pd.DataFrame, 'to_sql'):
+            upsert_dataframe(sample_df, 'employees', 'postgresql://x/y', 'id')
+    assert conn.execute.call_count == 2
+    sql = str(conn.execute.call_args_list[1][0][0])
+    assert 'CREATE UNIQUE INDEX IF NOT EXISTS' in sql
+    assert '"uq_employees_id"' in sql and '("id")' in sql
+
+
+def test_upsert_dataframe_skips_index_ddl_when_present(sample_df):
+    """Index đã có thì không chạy DDL: CREATE ... IF NOT EXISTS vẫn khoá bảng
+    và làm hai lần ghi đồng thời deadlock."""
+    engine, conn = _mock_engine_with_conn()
+    conn.execute.return_value.scalar.return_value = 'uq_employees_id'
     with patch('etl.load.create_engine', return_value=engine):
         with patch.object(pd.DataFrame, 'to_sql'):
             upsert_dataframe(sample_df, 'employees', 'postgresql://x/y', 'id')
     conn.execute.assert_called_once()
-    assert conn.execute.call_args[0][1] == {'keys': [1, 2, 3]}
+    assert 'to_regclass' in str(conn.execute.call_args[0][0])
+
+
+def test_upsert_dataframe_inserts_with_on_conflict_method(sample_df):
+    """Lần to_sql thứ hai (chèn dữ liệu) phải dùng hàm chèn ON CONFLICT."""
+    engine, _ = _mock_engine_with_conn()
+    with patch('etl.load.create_engine', return_value=engine):
+        with patch.object(pd.DataFrame, 'to_sql') as mock_to_sql:
+            upsert_dataframe(sample_df, 'employees', 'postgresql://x/y', 'id')
+    assert 'method' not in mock_to_sql.call_args_list[0][1]
+    assert callable(mock_to_sql.call_args_list[1][1]['method'])
+
+
+def test_upsert_dataframe_drops_duplicate_keys_in_batch():
+    """Cùng một khoá xuất hiện hai lần trong lô thì chỉ giữ bản sau cùng."""
+    df = pd.DataFrame({'id': [1, 1, 2], 'name': ['cu', 'moi', 'b']})
+    engine, _ = _mock_engine_with_conn()
+    with patch('etl.load.create_engine', return_value=engine):
+        with patch.object(pd.DataFrame, 'to_sql'):
+            result = upsert_dataframe(df, 'employees', 'postgresql://x/y', 'id')
+    assert result == 2
+
+
+def _compiled_on_conflict_sql(columns, key_column):
+    """Chạy hàm chèn trên một bảng giả, trả về câu SQL PostgreSQL nó sinh ra."""
+    from sqlalchemy import Column, Integer, MetaData, Table
+    from sqlalchemy.dialects import postgresql
+    from etl.load import _insert_on_conflict_update
+    sa_table = Table('t', MetaData(), *[Column(c, Integer) for c in columns])
+    pd_table = MagicMock()
+    pd_table.table = sa_table
+    conn = MagicMock()
+    _insert_on_conflict_update(key_column)(pd_table, conn, columns, iter([(1,) * len(columns)]))
+    stmt = conn.execute.call_args[0][0]
+    return str(stmt.compile(dialect=postgresql.dialect()))
+
+
+def test_on_conflict_method_updates_non_key_columns():
+    """Trùng khoá thì cập nhật các cột còn lại, không chèn thêm dòng."""
+    sql = _compiled_on_conflict_sql(['id', 'name'], 'id')
+    assert 'ON CONFLICT (id) DO UPDATE SET name = excluded.name' in sql
+
+
+def test_on_conflict_method_does_nothing_when_only_key_column():
+    """Bảng chỉ có cột khoá thì không có gì để cập nhật: bỏ qua dòng trùng."""
+    sql = _compiled_on_conflict_sql(['id'], 'id')
+    assert 'ON CONFLICT (id) DO NOTHING' in sql
 
 
 def test_upsert_dataframe_runs_in_single_transaction(sample_df):

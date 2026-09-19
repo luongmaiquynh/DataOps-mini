@@ -22,10 +22,16 @@ class QualityReport:
         )
 
 
-def run_quality_check(df: pd.DataFrame, expected_columns: List[str] = None) -> QualityReport:
-    """Kiểm tra chất lượng dữ liệu, trả về QualityReport (không raise exception)."""
+def run_quality_check(df: pd.DataFrame, expected_columns: List[str] = None,
+                      key_columns: List[str] = None) -> QualityReport:
+    """Kiểm tra chất lượng dữ liệu, trả về QualityReport (không raise exception).
+
+    `key_columns`: đếm trùng theo khoá thay vì theo cả dòng. Cần cho dữ liệu đã
+    nằm trong database, vì hai bản ghi trùng khoá thường khác nhau ở cột phụ như
+    `ingested_at` — so cả dòng sẽ không bao giờ thấy chúng trùng.
+    """
     null_count = df.isnull().sum().to_dict()
-    duplicate_count = int(df.duplicated().sum())
+    duplicate_count = int(df.duplicated(subset=key_columns).sum())
     schema_errors = []
     if expected_columns:
         schema_errors = [c for c in expected_columns if c not in df.columns]
@@ -46,8 +52,9 @@ def run_quality_check(df: pd.DataFrame, expected_columns: List[str] = None) -> Q
     return report
 
 
-def assert_quality(df: pd.DataFrame, expected_columns: List[str] = None) -> None:
+def assert_quality(df: pd.DataFrame, expected_columns: List[str] = None,
+                   key_columns: List[str] = None) -> None:
     """Kiểm tra chất lượng và raise ValueError nếu không đạt."""
-    report = run_quality_check(df, expected_columns)
+    report = run_quality_check(df, expected_columns, key_columns)
     if not report.passed:
         raise ValueError(f"Data quality check failed: {report.summary()}")

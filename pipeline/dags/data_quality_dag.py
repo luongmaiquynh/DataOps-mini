@@ -21,7 +21,8 @@ def check_employees(**context):
     engine = get_postgres_engine(POSTGRES_CONN)
     try:
         df = pd.read_sql('SELECT * FROM employees', engine)
-        report = run_quality_check(df, expected_columns=['id', 'name', 'age', 'city', 'salary'])
+        report = run_quality_check(df, expected_columns=['id', 'name', 'age', 'city', 'salary'],
+                                   key_columns=['id'])
         print(report.summary())
         if not report.passed:
             raise ValueError(f"employees table quality check failed: {report.summary()}")
@@ -41,7 +42,9 @@ def check_weather(**context):
     engine = get_postgres_engine(POSTGRES_CONN)
     try:
         df = pd.read_sql('SELECT * FROM weather_hanoi', engine)
-        report = run_quality_check(df, expected_columns=['time', 'temperature_2m', 'windspeed_10m'])
+        # Đếm trùng theo khoá: hai dòng trùng `time` khác nhau ở `ingested_at`.
+        report = run_quality_check(df, expected_columns=['time', 'temperature_2m', 'windspeed_10m'],
+                                   key_columns=['time'])
         print(report.summary())
         if not report.passed:
             raise ValueError(f"weather_hanoi table quality check failed: {report.summary()}")

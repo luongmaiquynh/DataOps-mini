@@ -26,6 +26,21 @@ def test_run_quality_check_detects_duplicates():
     assert report.passed is False
 
 
+def test_run_quality_check_detects_duplicate_keys_with_different_columns():
+    """Hai dòng trùng khoá nhưng khác cột phụ (vd. ingested_at) vẫn là trùng."""
+    df = pd.DataFrame({'time': ['00:00', '00:00'], 'ingested_at': ['a', 'b']})
+    assert run_quality_check(df).duplicate_count == 0
+    report = run_quality_check(df, key_columns=['time'])
+    assert report.duplicate_count == 1
+    assert report.passed is False
+
+
+def test_assert_quality_raises_on_duplicate_keys():
+    df = pd.DataFrame({'id': [1, 1], 'name': ['a', 'b']})
+    with pytest.raises(ValueError):
+        assert_quality(df, key_columns=['id'])
+
+
 def test_run_quality_check_detects_schema_errors():
     df = pd.DataFrame({'a': [1, 2]})
     report = run_quality_check(df, expected_columns=['a', 'b'])

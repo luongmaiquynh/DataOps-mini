@@ -56,8 +56,8 @@ def task_load(**context):
     clean_json = context['ti'].xcom_pull(key='clean_data', task_ids='transform')
     df = pd.read_json(io.StringIO(clean_json))
 
-    # Delete-insert theo id trong một transaction; hàm tự tạo bảng nếu
-    # chưa có nên chạy được cả trên database trống.
+    # Chèn mới hoặc cập nhật theo id (INSERT ... ON CONFLICT); hàm tự tạo
+    # bảng nếu chưa có nên chạy được cả trên database trống.
     upsert_dataframe(df, table='employees', conn_str=POSTGRES_CONN, key_column='id')
     object_name = f'raw/employees/{date.today()}.csv'
     load_to_minio(df, MINIO_BUCKET, object_name, MINIO_ENDPOINT, MINIO_ACCESS, MINIO_SECRET)
@@ -71,6 +71,8 @@ with DAG(
     start_date=datetime(2026, 5, 12),
     catchup=False,
     tags=['ingest', 'csv'],
+    # Hai lần chạy ghi cùng lúc từng nhân đôi dữ liệu; chạy lần lượt cho chắc.
+    max_active_runs=1,
 ) as dag:
 
     extract   = PythonOperator(task_id='extract',   python_callable=task_extract)
