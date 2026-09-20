@@ -1,3 +1,13 @@
+# Tắt HTTP/3: Caddy nghe QUIC trên UDP 443 và quảng cáo `alt-svc: h3`, nhưng
+# compose chỉ publish TCP 443 nên gói UDP không bao giờ tới nơi. Trình duyệt
+# nhớ lời mời đó 30 ngày rồi treo ở mỗi lần vào sau; curl không dính vì không
+# dùng HTTP/3. Lab không cần HTTP/3 nên tắt, thay vì mở thêm một cổng nữa.
+{
+	servers {
+		protocols h1 h2
+	}
+}
+
 # Reverse proxy đặt trước mọi giao diện web của VM1.
 # Định tuyến theo tên miền nên tất cả dùng chung cổng 443, URL không có số cổng.
 #
@@ -11,6 +21,9 @@
 
 (common) {
 	tls internal
+	# Xoá lời mời h3 mà trình duyệt đã nhớ từ trước. Bỏ dòng này được sau khi
+	# mọi máy từng truy cập đã nạp lại ít nhất một lần.
+	header Alt-Svc "clear"
 	encode gzip
 	header -Server
 }

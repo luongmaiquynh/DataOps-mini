@@ -11,7 +11,9 @@ services:
     container_name: caddy
     restart: always
     volumes:
-      - ../../monitoring/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Mount thư mục chứ không mount từng file: Docker bám inode, file mới
+      # ghi đè sẽ không tới được container.
+      - ../../monitoring/caddy:/etc/caddy:ro
       - caddy_data:/data        # giữ CA nội bộ, không sinh lại mỗi lần restart
       - caddy_config:/config
     ports:
