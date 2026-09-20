@@ -58,15 +58,6 @@
     modification_time: preserve
     access_time: preserve
 
-- name: Schedule daily backup
-  ansible.builtin.cron:
-    name: Daily PostgreSQL backup
-    user: "{{ app_user }}"
-    minute: "{{ backup_minute }}"
-    hour: "{{ backup_hour }}"
-    job: "{{ backup_script }} >> {{ backup_log }} 2>&1"
-    state: present
-
 # Backup chưa từng restore thì chưa chứng minh được điều gì. Script này chạy
 # hàng tuần, restore bản mới nhất vào một PostgreSQL tạm rồi đếm bảng và dòng.
 - name: Install restore verification script
@@ -87,16 +78,6 @@
     mode: "0644"
     modification_time: preserve
     access_time: preserve
-
-- name: Schedule weekly restore verification
-  ansible.builtin.cron:
-    name: Weekly backup restore verification
-    user: "{{ app_user }}"
-    minute: "0"
-    hour: "{{ backup_restore_test_hour }}"
-    weekday: "{{ backup_restore_test_weekday }}"
-    job: "{{ backup_restore_test_script }} >> {{ backup_restore_test_log }} 2>&1"
-    state: present
 
 # MinIO không nằm trong pg_dump. Trước đây data lake hoàn toàn không có bản sao
 # nào: mất volume minio_data trên VM2 là mất hết file raw.
@@ -127,11 +108,46 @@
     modification_time: preserve
     access_time: preserve
 
-- name: Schedule daily MinIO backup
+# Lịch chạy dùng systemd timer thay cho cron: 19/09 VM3 tắt đúng giờ 2:30, cron
+# không chạy bù nên sao lưu MinIO quá hạn 26 giờ và bật MinioBackupStale.
+- name: Remove old backup cron entries
   ansible.builtin.cron:
-    name: Daily MinIO backup
+    name: "{{ item }}"
     user: "{{ app_user }}"
-    minute: "{{ backup_minio_minute }}"
-    hour: "{{ backup_minio_hour }}"
-    job: "{{ backup_minio_script }} >> {{ backup_minio_log }} 2>&1"
-    state: present
+    state: absent
+  loop:
+    - Daily PostgreSQL backup
+    - Daily MinIO backup
+    - Weekly backup restore verification
+
+- name: Install backup service units
+  ansible.builtin.template:
+    src: job.service.j2
+    dest: "/etc/systemd/system/{{ item.name }}.service"
+    mode: "0644"
+  loop: "{{ backup_jobs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Reload systemd for backup timers
+
+- name: Install backup timer units
+  ansible.builtin.template:
+    src: job.timer.j2
+    dest: "/etc/systemd/system/{{ item.name }}.timer"
+    mode: "0644"
+  loop: "{{ backup_jobs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Reload systemd for backup timers
+
+- name: Flush handlers so systemd sees new units
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start backup timers
+  ansible.builtin.systemd_service:
+    name: "{{ item.name }}.timer"
+    enabled: true
+    state: started
+  loop: "{{ backup_jobs }}"
+  loop_control:
+    label: "{{ item.name }}"

@@ -89,7 +89,7 @@ groups:
           description: >-
             Bản backup thành công gần nhất cách đây {{ $value | humanizeDuration }}.
 
-      # Không có metric nào = cron không chạy, hoặc node-exporter mất textfile.
+      # Không có metric nào = timer backup không chạy, hoặc node-exporter mất textfile.
       - alert: BackupMetricMissing
         expr: absent(dataops_backup_last_success_timestamp_seconds)
         for: 30m
@@ -98,7 +98,7 @@ groups:
         annotations:
           summary: "Không thấy metric backup"
           runbook_url: "https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/BackupMetricMissing.md"
-          description: "Cron backup có thể không chạy, hoặc node-exporter mất thư mục textfile."
+          description: "Timer backup có thể không chạy, hoặc node-exporter mất thư mục textfile."
 
       # Backup tồn tại nhưng restore thử không thành công — nguy hiểm hơn cả
       # không có backup, vì dễ tạo cảm giác an toàn giả.
@@ -137,7 +137,7 @@ groups:
           runbook_url: >-
             https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/MinioBackupMetricMissing.md
           description: >-
-            Cron sao lưu MinIO có thể không chạy, hoặc node-exporter mất thư mục textfile.
+            Timer sao lưu MinIO có thể không chạy, hoặc node-exporter mất thư mục textfile.
 
       # Bản sao MinIO tồn tại nhưng đổ ngược vào một MinIO trắng không ra đủ
       # object — nguy hiểm hơn không có bản sao, vì tạo cảm giác an toàn giả.

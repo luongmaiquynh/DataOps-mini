@@ -10,14 +10,14 @@ hay không.
 ## Kiểm tra
 
 ```bash
-ssh dataops@192.168.64.4 'crontab -l | grep restore'
+ssh dataops@192.168.64.4 'systemctl list-timers dataops-restore-test.timer --all'
 ssh dataops@192.168.64.4 'tail -10 /var/log/dataops-restore-test.log'
 ```
 
 ## Xử lý
 
 1. Chạy tay ngay: `ssh dataops@192.168.64.4 'bash /home/dataops/restore-test.sh'`
-2. Cron bị mất: `ansible-playbook site.yml --limit vm3 --ask-become-pass`
+2. Timer bị mất: `ansible-playbook site.yml --limit vm3 --ask-become-pass`
 3. Job chạy nhưng không ghi metric: xem runbook `BackupMetricMissing`.
 
 ---

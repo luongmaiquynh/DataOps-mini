@@ -14,7 +14,7 @@ thường, nên đừng nhầm là "đã có backup rồi".
 ```bash
 ssh dataops@192.168.64.4 'ls -lt /opt/backup/minio | head -5'
 ssh dataops@192.168.64.4 'tail -30 /var/log/dataops-minio-backup.log'
-ssh dataops@192.168.64.4 'crontab -l | grep -i minio'
+ssh dataops@192.168.64.4 'systemctl list-timers dataops-backup-minio.timer --all'
 curl -s -o /dev/null -w '%{http_code}\n' http://192.168.64.3:9000/minio/health/live
 ```
 

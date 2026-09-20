@@ -2,7 +2,7 @@
 # =============================================================================
 # backup.sh – Backup PostgreSQL database định kỳ
 # Chạy trên VM3 (192.168.64.4), kết nối sang VM2 (192.168.64.3)
-# Cron: 0 2 * * * /opt/dataops/backup/backup.sh >> /var/log/dataops-backup.log 2>&1
+# Lịch: systemd timer dataops-backup.timer, 2:00 hằng ngày, chạy bù nếu máy tắt lúc đó
 # =============================================================================
 
 # --- Nạp cấu hình từ .env do Ansible sinh (chứa mật khẩu) ---
@@ -27,7 +27,7 @@ ROLES_FILE="$BACKUP_DIR/roles_${TIMESTAMP}.sql.gz"
 LOG_PREFIX="[$(date '+%Y-%m-%d %H:%M:%S')]"
 START_TS=$(date +%s)
 
-# Thư mục textfile của node-exporter: cách đưa kết quả cron job vào Prometheus
+# Thư mục textfile của node-exporter: cách đưa kết quả job định kỳ vào Prometheus
 TEXTFILE_DIR="${TEXTFILE_DIR:-/var/lib/node_exporter/textfile}"
 METRIC_FILE="$TEXTFILE_DIR/dataops_backup.prom"
 

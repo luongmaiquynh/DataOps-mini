@@ -158,7 +158,7 @@ Cấu trúc role:
 | `airflow` | vm1 | Airflow CeleryExecutor |
 | `monitoring` | vm1 | Prometheus, Grafana, Loki, Alertmanager, các exporter |
 | `node_exporter` | vm3 | node-exporter |
-| `backup` | vm3 | postgresql-client-15, script backup, cron 2:00 |
+| `backup` | vm3 | postgresql-client-15, script backup, systemd timer 2:00 (chạy bù nếu lỡ giờ) |
 
 ### Deploy thủ công
 

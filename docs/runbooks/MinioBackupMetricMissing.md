@@ -25,8 +25,8 @@ curl -sk "https://prometheus.dataops.test/api/v1/query?query=dataops_minio_backu
 2. **Thiếu thư mục textfile**: `ansible-playbook site.yml --limit vm3` sẽ tạo lại
    `/var/lib/node_exporter/textfile` với đúng quyền.
 3. **node-exporter VM3 chết**: xem runbook `InstanceDown`; không có exporter thì
-   mọi metric của cron job đều biến mất.
-4. **Cron không chạy**: `ssh dataops@192.168.64.4 'systemctl status cron'`.
+   mọi metric của job sao lưu đều biến mất.
+4. **Timer không chạy**: `ssh dataops@192.168.64.4 'systemctl list-timers dataops-backup-minio.timer --all'`.
 
 ## Phòng ngừa
 

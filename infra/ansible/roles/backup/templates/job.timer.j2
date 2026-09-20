@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+[Unit]
+Description=DataOps: lịch {{ item.description }}
+
+[Timer]
+OnCalendar={{ item.on_calendar }}
+# Máy tắt đúng giờ chạy thì chạy bù ngay khi lên lại.
+# cron không làm được việc này: lỡ giờ là mất cả ngày hôm đó.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -11,7 +11,7 @@
 # "hiện tại" để lần sau chỉ tải phần thay đổi; file .tar.gz là bản chụp giữ lại
 # theo lịch giữ.
 #
-# Chạy trên VM3. Cron: 30 2 * * *
+# Chạy trên VM3. Lịch: systemd timer dataops-backup-minio.timer, 2:30 hằng ngày
 # Thoát khác 0 nếu không sao lưu được.
 # =============================================================================
 set -uo pipefail

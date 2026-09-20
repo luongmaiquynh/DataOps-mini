@@ -12,7 +12,8 @@ phục được tới bản backup cuối cùng.
 ```bash
 ssh dataops@192.168.64.4 'ls -lt /opt/backup/postgres | head -5'
 ssh dataops@192.168.64.4 'tail -30 /var/log/dataops-backup.log'
-ssh dataops@192.168.64.4 'crontab -l'
+ssh dataops@192.168.64.4 'systemctl list-timers "dataops-*" --all'
+ssh dataops@192.168.64.4 'systemctl status dataops-backup.service --no-pager'
 ```
 
 ## Xử lý
@@ -21,7 +22,9 @@ ssh dataops@192.168.64.4 'crontab -l'
 2. **Không kết nối được PostgreSQL**: xem runbook `PostgreSQLDown`.
 3. **Thiếu mật khẩu**: script đọc `/home/dataops/dataops/.env`. Chạy
    `ansible-playbook site.yml --limit vm3` để sinh lại file này.
-4. **Cron không chạy**: kiểm tra `systemctl status cron` trên VM3.
+4. **Timer không chạy**: `systemctl list-timers` không có `dataops-backup.timer` thì chạy
+   `ansible-playbook site.yml --limit vm3 --ask-become-pass`. Máy tắt đúng 2:00 thì
+   timer tự chạy bù khi máy lên lại (`Persistent=true`), không cần làm gì.
 5. **Hết đĩa**: xem runbook `DiskSpaceLow`.
 
 ## Phòng ngừa

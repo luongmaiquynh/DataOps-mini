@@ -1,0 +1,5 @@
+---
+# Tên riêng cho role này: handler trùng tên giữa các role thì Ansible chỉ giữ một.
+- name: Reload systemd for backup timers
+  ansible.builtin.systemd_service:
+    daemon_reload: true

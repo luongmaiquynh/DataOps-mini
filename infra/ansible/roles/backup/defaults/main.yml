@@ -2,15 +2,32 @@
 backup_script: /home/dataops/backup.sh
 backup_dir: /opt/backup/postgres
 backup_log: /var/log/dataops-backup.log
-backup_hour: "2"
-backup_minute: "0"
 backup_restore_test_script: /home/dataops/restore-test.sh
 backup_restore_test_log: /var/log/dataops-restore-test.log
-backup_restore_test_weekday: "0"      # 0 = Chủ nhật
-backup_restore_test_hour: "3"
 backup_textfile_dir: /var/lib/node_exporter/textfile
 backup_minio_script: /home/dataops/backup-minio.sh
 backup_minio_dir: /opt/backup/minio
 backup_minio_log: /var/log/dataops-minio-backup.log
-backup_minio_hour: "2"
-backup_minio_minute: "30"      # sau backup database 30 phút, tránh chạy chồng
+
+# Lịch chạy bằng systemd timer (giờ UTC của máy). `after` chỉ có tác dụng khi
+# các job cùng được xếp hàng, tức đúng lúc chạy bù sau boot: restore-test phải
+# đợi hai bản backup mới ghi xong, nếu không nó đọc phải file đang viết dở.
+backup_jobs:
+  - name: dataops-backup
+    description: sao lưu PostgreSQL
+    script: "{{ backup_script }}"
+    log: "{{ backup_log }}"
+    on_calendar: "*-*-* 02:00:00"
+    after: []
+  - name: dataops-backup-minio
+    description: sao lưu MinIO
+    script: "{{ backup_minio_script }}"
+    log: "{{ backup_minio_log }}"
+    on_calendar: "*-*-* 02:30:00"     # sau backup database 30 phút, tránh chạy chồng
+    after: [dataops-backup]
+  - name: dataops-restore-test
+    description: khôi phục thử bản sao lưu
+    script: "{{ backup_restore_test_script }}"
+    log: "{{ backup_restore_test_log }}"
+    on_calendar: "Sun *-*-* 03:00:00"
+    after: [dataops-backup, dataops-backup-minio]

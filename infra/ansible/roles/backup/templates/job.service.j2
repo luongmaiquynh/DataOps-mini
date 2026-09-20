@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+[Unit]
+Description=DataOps: {{ item.description }}
+# Chạy bù ngay lúc boot thì mạng và Docker có thể chưa sẵn sàng.
+After=network-online.target docker.service{% for dep in item.after %} {{ dep }}.service{% endfor %}
+
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ app_user }}
+Group={{ app_user }}
+ExecStart={{ item.script }}
+StandardOutput=append:{{ item.log }}
+StandardError=inherit

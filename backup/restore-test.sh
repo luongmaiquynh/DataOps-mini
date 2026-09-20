@@ -6,7 +6,7 @@
 # một PostgreSQL tạm trong container, restore bản dump mới nhất vào đó, kiểm
 # tra số bảng và số dòng, rồi xoá container.
 #
-# Chạy trên VM3 (nơi lưu backup). Cron: 3:00 sáng Chủ nhật hàng tuần.
+# Chạy trên VM3 (nơi lưu backup). Lịch: dataops-restore-test.timer, 3:00 sáng Chủ nhật.
 # Thoát khác 0 nếu bản backup không dùng được.
 # =============================================================================
 set -uo pipefail

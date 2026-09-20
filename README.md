@@ -51,7 +51,7 @@ flowchart TB
     end
 
     subgraph VM3["VM3 · 192.168.64.4 — backup"]
-        Backup["pg_dump + MinIO mirror<br/>weekly restore drill · cron"]
+        Backup["pg_dump + MinIO mirror<br/>weekly restore drill · systemd timers"]
         NE["node-exporter"]
     end
 
