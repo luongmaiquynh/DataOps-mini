@@ -97,3 +97,59 @@ tests:
               severity: warning
               vm: vm1
             exp_annotations: *runner_annotations
+
+  # Tái hiện 20/09: ba VM chậm 8 tiếng, chrony không chọn được nguồn nào.
+  # ClockSkew mù trong tình huống này (Prometheus cùng đồng hồ sai), nên
+  # ClockNotSynchronised phải là cái bắt được.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_chrony_synchronised{vm="vm2", instance="192.168.64.3:9100"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: ClockNotSynchronised
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: ClockNotSynchronised
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              vm: vm2
+              instance: 192.168.64.3:9100
+            exp_annotations:
+              summary: "vm2 mất đồng bộ giờ"
+              runbook_url: >-
+                https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/ClockNotSynchronised.md
+              description: >-
+                chrony trên vm2 không chọn được nguồn giờ, hoặc lệch quá ngưỡng. Script chrony-guard
+                sẽ tự khởi động lại chrony; alert còn bật nghĩa là cách đó không đủ.
+
+  # Máy đồng bộ bình thường: không được báo gì.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_chrony_synchronised{vm="vm1", instance="node-exporter:9100"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ClockNotSynchronised
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: ChronyMetricMissing
+        exp_alerts: []
+
+  # Mất hẳn metric: timer chết hoặc node-exporter mất thư mục textfile.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="unrelated"}'
+        values: '1x60'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: ChronyMetricMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Không còn số đo đồng bộ giờ"
+              runbook_url: >-
+                https://github.com/luongmaiquynh/DataOps-mini/blob/main/docs/runbooks/ChronyMetricMissing.md
+              description: "Timer chrony-guard có thể không chạy, hoặc node-exporter mất thư mục textfile."

@@ -107,3 +107,43 @@
     name: chrony
     state: started
     enabled: true
+
+# node-exporter đọc thư mục này để đưa số đo của script định kỳ vào Prometheus.
+- name: Create node-exporter textfile directory
+  ansible.builtin.file:
+    path: "{{ common_textfile_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+# Đẩy thẳng từ máy điều khiển, không đợi role app_code: role common chạy trước nó,
+# và trên máy dựng mới thì repo chưa có ở VM.
+- name: Install chrony guard script
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../monitoring/scripts/chrony-guard.sh"
+    dest: "{{ common_chrony_guard_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install chrony guard unit files
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - dataops-chrony-guard.service
+    - dataops-chrony-guard.timer
+  notify: Reload systemd for chrony guard
+
+- name: Flush handlers so systemd sees the chrony guard units
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start chrony guard timer
+  ansible.builtin.systemd_service:
+    name: dataops-chrony-guard.timer
+    enabled: true
+    state: started

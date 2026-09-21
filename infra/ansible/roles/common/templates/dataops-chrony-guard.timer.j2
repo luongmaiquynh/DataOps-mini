@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[Unit]
+Description=DataOps: lịch đo đồng bộ giờ
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec={{ common_chrony_guard_interval }}
+# Không cần Persistent: đây là phép đo hiện tại, chạy bù lần lỡ không có ý nghĩa.
+
+[Install]
+WantedBy=timers.target

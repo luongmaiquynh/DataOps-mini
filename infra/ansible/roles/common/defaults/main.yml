@@ -9,3 +9,9 @@ common_local_hostnames: []
 common_ntp_pools:
   - ntp.ubuntu.com
 common_ntp_maxpoll: 6
+
+# Script tự chữa khi chrony kẹt sau khi máy Mac ngủ lâu (sự cố 20/09: lệch 8 giờ,
+# chrony loại hết nguồn và nằm im; chỉ khởi động lại dịch vụ mới chữa được).
+common_chrony_guard_script: /usr/local/bin/dataops-chrony-guard
+common_chrony_guard_interval: 1min
+common_textfile_dir: /var/lib/node_exporter/textfile

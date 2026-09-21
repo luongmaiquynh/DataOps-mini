@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+[Unit]
+Description=DataOps: đo đồng bộ giờ và tự chữa khi chrony kẹt
+After=chrony.service
+
+[Service]
+Type=oneshot
+# Chạy dưới quyền root vì có thể phải khởi động lại chrony.
+ExecStart={{ common_chrony_guard_script }}
